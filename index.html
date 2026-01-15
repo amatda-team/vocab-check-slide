@@ -226,6 +226,15 @@
       color: var(--text);
       font-weight: 800;
     }
+
+      /* Shoelace가 아직 로드되기 전 iOS에서 sl-dialog 내용이 아래에 노출되는 현상 방지 
+     (선택) 토스트도 같이 “초기 플래시” 방지하고 싶으면*/
+    sl-dialog:not(:defined){ display:none !important; }
+    sl-alert:not(:defined){ display:none !important; }
+
+
+
+    
   </style>
 </head>
 
