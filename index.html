@@ -2,538 +2,550 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vocab Check - 오늘의 단어</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Vocab Check Slide (Phase 0)</title>
+
+  <!-- Shoelace (CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/shoelace.js"></script>
+
   <style>
     :root{
-      --bg:#f6f7f9; --card:#fff; --line:rgba(0,0,0,.08);
-      --muted:rgba(0,0,0,.5); --shadow:0 14px 40px rgba(0,0,0,.08);
-      --r:18px; --max:720px;
-      --green:#3ec67a; --red:#f45a5a;
+      --app-max: 480px;
+      --bg: #0b0f14;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --line: rgba(255,255,255,.10);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.45);
+      --radius: 18px;
     }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#111}
-    .wrap{max-width:var(--max);margin:0 auto;padding:22px 16px 40px}
-    h1{margin:0 0 6px;font-size:26px;letter-spacing:-.02em}
-    .sub{margin:0 0 16px;color:var(--muted);line-height:1.5}
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Helvetica Neue", sans-serif;
+      background: radial-gradient(1200px 800px at 50% -200px, rgba(80,130,255,.18), transparent 60%),
+                  linear-gradient(180deg, #070a10, #0b0f14 40%, #070a10);
+      color: var(--text);
+      min-height: 100svh;
+    }
 
-    .top{
-      display:flex; gap:12px; align-items:center; justify-content:space-between;
-      position:sticky; top:0; padding:12px 0;
-      background:linear-gradient(to bottom, rgba(246,247,249,.98), rgba(246,247,249,.75), rgba(246,247,249,0));
-      backdrop-filter: blur(6px);
-      z-index:10;
+    /* sticky toast zone */
+    .toast-wrap{
+      position: sticky;
+      top: 10px;
+      z-index: 999;
+      padding: 0 12px;
     }
-    .pill{
-      background:var(--card); border:1px solid var(--line); border-radius:999px;
-      padding:10px 12px; display:flex; gap:10px; align-items:center;
-      box-shadow:0 10px 22px rgba(0,0,0,.06);
-      min-height:44px;
+    .toast-wrap sl-alert{
+      max-width: var(--app-max);
+      margin: 0 auto;
+      border-radius: 14px;
     }
-    .pill b{font-size:14px}
-    .pill span{font-size:12px;color:var(--muted)}
-    .btn{
-      border:1px solid var(--line); background:var(--card);
-      border-radius:12px; padding:10px 14px; font-weight:800; cursor:pointer;
-      box-shadow:0 10px 22px rgba(0,0,0,.06);
-    }
-    .btn.primary{background:#111;color:#fff;border-color:#111}
-    .btn:disabled{opacity:.45;cursor:not-allowed}
 
-    .panel{
-      background:var(--card); border:1px solid var(--line);
-      border-radius:var(--r); box-shadow:var(--shadow);
-      padding:16px; margin-top:14px;
+    .app{
+      max-width: var(--app-max);
+      margin: 0 auto;
+      padding: 14px 14px 120px;
     }
-    .panelHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-    .panelHead h2{margin:0;font-size:18px;letter-spacing:-.02em}
-    .mini{font-size:12px;color:var(--muted)}
 
-    .rows{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-    .row{
-      background:rgba(0,0,0,.03);
-      border:1px solid rgba(0,0,0,.06);
-      border-radius:16px;
-      padding:12px;
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
     }
-    .track{
-      position:relative;
-      height:44px;
-      border-radius:999px;
-      background:rgba(0,0,0,.05);
-      border:1px solid rgba(0,0,0,.06);
-      overflow:hidden;
-      display:flex;align-items:center;justify-content:center;
+    .title{
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: -.2px;
     }
-    .zone{
-      position:absolute;top:0;bottom:0;width:32%;
-      display:flex;align-items:center;padding:0 14px;
-      font-weight:800;font-size:12px;color:rgba(0,0,0,.38);
-      user-select:none; cursor:pointer;
+    .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
     }
-    .zone.left{left:0;justify-content:flex-start}
-    .zone.right{right:0;justify-content:flex-end}
+    .titlebox{ display:flex; flex-direction:column; }
 
-    .center{
-      position:relative; z-index:1;
-      max-width:62%;
-      padding:0 56px;
-      font-weight:900;
-      letter-spacing:-.02em;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      user-select:none;
-      transition:.15s;
+    .section{
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
     }
-    .center.meaning{color:rgba(0,0,0,.78);font-weight:800}
 
-    .thumb{
-      position:absolute; top:50%; left:50%;
-      transform:translate(-50%,-50%);
-      height:34px; padding:0 16px; border-radius:999px;
-      display:flex;align-items:center;justify-content:center;
-      font-weight:950; letter-spacing:-.02em;
-      border:1px solid rgba(0,0,0,.10);
-      box-shadow:0 14px 28px rgba(0,0,0,.12);
-      background:rgba(0,0,0,.10);
-      color:rgba(0,0,0,.86);
-      cursor:grab; user-select:none;
-      transition:left .16s ease, background .16s ease, color .16s ease, transform .16s ease;
-      z-index:2;
-      will-change:left;
-    }
-    .thumb:active{cursor:grabbing}
-
-    .meta{margin-top:8px;display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
-    .meta .state{font-weight:900;color:rgba(0,0,0,.62)}
-
-    .footer{display:flex;justify-content:flex-end;margin-top:14px}
-    .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.5}
-
-    /* Toast */
-    .toasts{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:10px}
-    .toast{
-      width:min(520px, calc(100vw - 28px));
-      background:rgba(255,255,255,.92);
-      border:1px solid rgba(0,0,0,.10);
-      border-radius:14px;
-      padding:10px 12px;
-      box-shadow:0 18px 40px rgba(0,0,0,.14);
-      font-weight:800;
-    }
-    .toast small{display:block;margin-top:2px;color:var(--muted);font-weight:700}
-
-    /* Modal / Overlay */
-    .backdrop{
-      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-      background:rgba(255,255,255,.60);backdrop-filter:blur(8px);
-      z-index:9990;
-    }
-    .backdrop.show{display:flex}
-    .modal{
-      width:min(520px, calc(100vw - 28px));
-      background:rgba(255,255,255,.94);
-      border:1px solid rgba(0,0,0,.10);
-      border-radius:18px;
-      box-shadow:0 22px 60px rgba(0,0,0,.20);
-      padding:16px;
-    }
-    .modal h3{margin:0 0 6px;font-size:16px;letter-spacing:-.02em}
-    .modal p{margin:0;color:var(--muted);line-height:1.5;font-size:13px}
-    .modal .tip{margin:10px 0 10px;font-weight:950}
-    .modal .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
-
-    .overlayCard{
+    .empty{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding: 36px 14px;
       text-align:center;
-      padding:18px 16px;
+      gap: 10px;
+      color: var(--muted);
     }
-    .spinner{
-      width:28px;height:28px;border-radius:50%;
-      border:3px solid rgba(0,0,0,.12);
-      border-top-color: rgba(0,0,0,.65);
-      margin:12px auto 0;
-      animation:spin .9s linear infinite;
+    .empty .big{
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
     }
-    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty .small{
+      font-size: 12px;
+      color: var(--muted2);
+      line-height: 1.5;
+    }
 
-    @media (max-width:520px){
-      .wrap{padding:18px 12px 34px}
-      .center{padding:0 50px}
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .row{
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .row .word{
+      font-weight: 750;
+      letter-spacing: -.2px;
+    }
+    .row .meaning{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer{
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.35) 25%, rgba(0,0,0,.55));
+      backdrop-filter: blur(10px);
+      z-index: 50;
+    }
+    .footer-inner{
+      max-width: var(--app-max);
+      margin: 0 auto;
+    }
+
+    /* overlay (Phase 0에서는 충전 진행용) */
+    .overlay{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items:center;
+      justify-content:center;
+      z-index: 2000;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+      padding: 18px;
+    }
+    .overlay.on{ display:flex; }
+    .overlay-card{
+      width: min(var(--app-max), 92vw);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(20,24,32,.92);
+      padding: 16px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    }
+    .overlay-title{
+      font-weight: 800;
+      letter-spacing: -.2px;
+      margin-bottom: 10px;
+    }
+    .overlay-sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .bar{
+      height: 10px;
+      width: 100%;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      overflow: hidden;
+      margin-top: 8px;
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .bar > i{
+      display:block;
+      height: 100%;
+      width: 0%;
+      background: rgba(120,180,255,.85);
+      border-radius: 999px;
+      transition: width .12s linear;
+    }
+
+    /* Shoelace tweaks */
+    sl-dialog::part(panel){
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(20,24,32,.96);
+      color: var(--text);
+    }
+    sl-dialog::part(title){
+      font-weight: 800;
+      letter-spacing: -.2px;
+    }
+    sl-button::part(base){
+      border-radius: 14px;
+    }
+    .hint{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .tiny{
+      font-size: 11px;
+      color: var(--muted2);
+    }
+    .remain{
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .remain b{
+      color: var(--text);
+      font-weight: 800;
     }
   </style>
 </head>
+
 <body>
-  <div class="toasts" id="toasts"></div>
+  <!-- Sticky toast (sl-alert) -->
+  <div class="toast-wrap" aria-live="polite" aria-atomic="true">
+    <sl-alert id="toast" variant="primary" duration="2200" closable>
+      <sl-icon slot="icon" name="info-circle"></sl-icon>
+      <span id="toastText">안내</span>
+    </sl-alert>
+  </div>
 
-  <div class="wrap">
-    <h1>오늘의 단어</h1>
-    <p class="sub">단어 필을 좌/우로 밀어서 선택해줘. 고정되면 뜻이 보여. 처음엔 비어있으니 충전하기로 시작!</p>
-
-    <div class="top">
-      <div class="pill">
-        <b id="todayCount">0개</b>
-        <span id="chargeLeft">오늘 남은 충전 3/3</span>
+  <main class="app">
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="titlebox">
+        <div class="title">오늘의 단어</div>
+        <div class="sub" id="subline">오늘은 0개로 시작해요. 충전하기로 추가하세요.</div>
       </div>
-      <button class="btn" id="btnCharge">충전하기</button>
+      <sl-button id="btnCharge" variant="primary" size="small">충전하기</sl-button>
     </div>
 
-    <div class="panel">
-      <div class="panelHead">
-        <h2>단어 목록</h2>
-        <div class="mini" id="selectionHint">아직 단어가 없어. 충전하기로 시작!</div>
+    <!-- List/Empty -->
+    <section class="section">
+      <div id="emptyState" class="empty">
+        <div class="big">아직 오늘의 단어가 0개예요</div>
+        <div class="small">상단의 <b>충전하기</b>를 눌러 오늘의 단어를 추가해 주세요.<br/>Phase 0에서는 +10개 더미 단어를 넣습니다.</div>
       </div>
 
-      <div class="rows" id="rows"></div>
+      <div id="list" class="list" style="display:none;"></div>
+    </section>
+  </main>
 
-      <div class="footer">
-        <button class="btn primary" id="btnSubmit">제출하기</button>
-      </div>
+  <!-- Footer (제출하기: Phase 0에서는 비활성 UI만) -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <sl-button variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 1~)</sl-button>
+    </div>
+  </footer>
 
-      <div class="hint">
-        * 제출은 “한 번에” 처리돼. 중간에 실수해도 다시 드래그해서 바꾸면 돼.
-      </div>
+  <!-- Charge dialog -->
+  <sl-dialog id="dlgCharge" label="충전하기">
+    <div class="hint" id="tipText">TIP: </div>
+    <div class="remain">
+      <span>오늘 남은 충전 횟수</span>
+      <b id="remainText">3/3</b>
+    </div>
+
+    <div style="height:12px;"></div>
+
+    <sl-button id="dlgChargeDo" variant="primary" style="width:100%;">충전하기 (+10)</sl-button>
+    <div style="height:8px;"></div>
+    <sl-button id="dlgChargeClose" variant="default" outline style="width:100%;">닫기</sl-button>
+
+    <div style="height:10px;"></div>
+    <div class="tiny">* 오늘의 단어 개수 상한은 없고, 하루 최대 3회 충전만 제한됩니다.</div>
+  </sl-dialog>
+
+  <!-- Overlay (charging animation) -->
+  <div id="overlay" class="overlay" role="status" aria-live="polite">
+    <div class="overlay-card">
+      <div class="overlay-title">단어 충전 중…</div>
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="overlay-sub" id="overlaySub">채워지는 느낌으로 잠깐만 보여줍니다.</div>
     </div>
   </div>
 
-  <!-- Charge Modal -->
-  <div class="backdrop" id="chargeBD">
-    <div class="modal">
-      <h3>충전하기</h3>
-      <div class="tip" id="chargeTip"></div>
-      <p id="chargeSub"></p>
-      <div class="actions">
-        <button class="btn" id="chargeClose">닫기</button>
-        <button class="btn primary" id="chargeDo">충전하기</button>
-      </div>
-      <p style="margin-top:10px;font-size:12px;color:var(--muted)" id="chargeRemain"></p>
-    </div>
-  </div>
+  <script>
+    /* =========================
+       Phase 0: localStorage keys
+    ========================= */
+    const LS_KEY = "vocab_slide_v0";
+    const todayKey = (() => {
+      // "오늘" 기준은 로컬 날짜(학생 기기)
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const day = String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${day}`;
+    })();
 
-  <!-- Submit Modal -->
-  <div class="backdrop" id="submitBD">
-    <div class="modal">
-      <h3>제출하시겠습니까?</h3>
-      <div class="tip" id="submitTip"></div>
-      <p>오늘 선택한 내용을 저장하고, 결과 화면으로 이동해.</p>
-      <div class="actions">
-        <button class="btn" id="submitClose">닫기</button>
-        <button class="btn primary" id="submitDo">제출하기</button>
-      </div>
-    </div>
-  </div>
+    const TIPS = [
+      "몰라요를 솔직하게 고를수록, 다음 학습이 정확해져요.",
+      "알아요를 눌렀더라도 15일 뒤엔 다시 확인해요.",
+      "오늘 10개만 제대로 해도, 한 달이면 300개가 쌓여요.",
+      "단어 뜻이 애매하면 ‘몰라요’가 오히려 효율적이에요.",
+      "충전은 하루 최대 3번! 오늘의 흐름만 잡아요."
+    ];
 
-  <!-- Updating Overlay -->
-  <div class="backdrop" id="overlayBD">
-    <div class="modal overlayCard">
-      <h3 style="margin:0;font-size:16px;letter-spacing:-.02em;">통계 업데이트 중…</h3>
-      <p style="margin-top:6px;">잠깐만! 거의 다 됐어.</p>
-      <div class="spinner"></div>
-    </div>
-  </div>
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if(!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+        const parsed = JSON.parse(raw);
 
-<script>
-(() => {
-  const LS_KEY = "vc_proto_v2";
-  const todayTargetAdd = 10;
-  const dailyChargeLimit = 3;
+        // 날짜 바뀌면(자정 이후) 초기화: Phase 0에서는 간단 리셋
+        if(parsed.day !== todayKey){
+          return { day: todayKey, chargeUsed: 0, words: [] };
+        }
 
-  const WORD_POOL = [
-    ["analyze","분석하다"],["assume","가정하다"],["evidence","증거"],["infer","추론하다"],["interpret","해석하다"],
-    ["justify","정당화하다"],["conclude","결론내리다"],["contrast","대조하다"],["maintain","유지하다"],["derive","도출하다"],
-    ["concept","개념"],["abstract","추상적인"],["concrete","구체적인"],["consistent","일관된"],["significant","중요한"],
-    ["approximate","대략적인"],["precise","정확한"],["expand","확장하다"],["reduce","줄이다"],["enhance","향상시키다"],
-    ["persist","지속되다"],["resolve","해결하다"],["strategy","전략"],["variable","변수"],["reliable","신뢰할 만한"],
-    ["occur","발생하다"],["imply","암시하다"],["indicate","나타내다"],["reflect","반영하다"],["affect","영향을 미치다"],
-    ["benefit","이익"],["challenge","도전/문제"],["approach","접근"],["context","문맥"],["factor","요인"]
-  ];
-
-  const TIPS = [
-    "뜻을 보고 “아는 느낌”이 들면, 오른쪽 고정 전에 1초만 더 확인해봐.",
-    "몰라요는 실패가 아니라 ‘성장 포인트’야.",
-    "오늘은 속도보다 정확. 고정 후 뜻을 한 번 읽는 것만으로도 효과가 커.",
-    "알아요로 보냈다면 예문이 떠오르는지 1초만 체크!",
-    "충전은 시작 버튼이야. 10개만 처리해도 오늘은 성공."
-  ];
-
-  const $ = (id) => document.getElementById(id);
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-  const todayKey = () => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${day}`;
-  };
-
-  const loadState = () => {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) {
-      return {
-        meta: { date: todayKey(), chargeUsed: 0, usedTipIdx: [] },
-        today: [],
-        wordStats: {},
-        processedSubmitCount: 0
-      };
-    }
-    try{
-      const st = JSON.parse(raw);
-      const tk = todayKey();
-      if (!st.meta || st.meta.date !== tk){
-        st.meta = { date: tk, chargeUsed: 0, usedTipIdx: [] };
+        // 안전 기본값
+        return {
+          day: parsed.day || todayKey,
+          chargeUsed: Number(parsed.chargeUsed || 0),
+          words: Array.isArray(parsed.words) ? parsed.words : []
+        };
+      }catch(e){
+        return { day: todayKey, chargeUsed: 0, words: [] };
       }
-      st.today = Array.isArray(st.today) ? st.today : [];
-      st.wordStats = st.wordStats || {};
-      st.processedSubmitCount = Number(st.processedSubmitCount || 0);
-      return st;
-    }catch(e){
-      localStorage.removeItem(LS_KEY);
-      return loadState();
-    }
-  };
-  const saveState = (st) => localStorage.setItem(LS_KEY, JSON.stringify(st));
-
-  const toast = (title, sub="") => {
-    const host = $("toasts");
-    const el = document.createElement("div");
-    el.className = "toast";
-    el.innerHTML = `${escapeHtml(title)}${sub?`<small>${escapeHtml(sub)}</small>`:""}`;
-    host.appendChild(el);
-    setTimeout(()=>{ el.style.opacity="0"; el.style.transform="translateY(-4px)"; }, 1600);
-    setTimeout(()=> el.remove(), 2200);
-  };
-
-  const escapeHtml = (s) => String(s)
-    .replaceAll("&","&amp;").replaceAll("<","&lt;")
-    .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-
-  const pickTipNoRepeatToday = (st) => {
-    const used = new Set(st.meta.usedTipIdx || []);
-    const candidates = [];
-    for (let i=0;i<TIPS.length;i++) if (!used.has(i)) candidates.push(i);
-    let idx;
-    if (candidates.length === 0) { st.meta.usedTipIdx = []; idx = Math.floor(Math.random()*TIPS.length); }
-    else idx = candidates[Math.floor(Math.random()*candidates.length)];
-    st.meta.usedTipIdx = st.meta.usedTipIdx || [];
-    st.meta.usedTipIdx.push(idx);
-    saveState(st);
-    return TIPS[idx];
-  };
-
-  const addTodayWords = (st, n) => {
-    const existing = new Set(st.today.map(x => x.w));
-    const candidates = WORD_POOL.filter(([w]) => !existing.has(w));
-    const add = Math.min(n, candidates.length);
-    for (let i=0;i<add;i++){
-      const [w,m] = candidates.splice(Math.floor(Math.random()*candidates.length), 1)[0];
-      st.today.push({ w, m, state: "neutral", x: 0 });
-    }
-    saveState(st);
-    return add;
-  };
-
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const lerp = (a,b,t)=>a+(b-a)*t;
-
-  const stateLabel = (st)=> st==="know"?"알아요":st==="dont"?"몰라요":"미선택";
-
-  let state = loadState();
-
-  const updateTop = () => {
-    $("todayCount").textContent = `${state.today.length}개`;
-    const left = Math.max(0, dailyChargeLimit - (state.meta.chargeUsed||0));
-    $("chargeLeft").textContent = `오늘 남은 충전 ${left}/${dailyChargeLimit}`;
-    const chosen = state.today.filter(x=>x.state!=="neutral").length;
-    $("selectionHint").textContent = state.today.length===0 ? "아직 단어가 없어. 충전하기로 시작!" : `${chosen}/${state.today.length} 선택됨`;
-  };
-
-  const applyVisual = (rowEl, item) => {
-    const thumb = rowEl.querySelector(".thumb");
-    const leftZone = rowEl.querySelector(".zone.left");
-    const rightZone = rowEl.querySelector(".zone.right");
-    const center = rowEl.querySelector(".center");
-    const stateEl = rowEl.querySelector("[data-state]");
-
-    const x = clamp(item.x||0, -1, 1);
-    const min=16, max=84;
-    thumb.style.left = `${lerp(min,max,(x+1)/2)}%`;
-
-    // thumb color
-    if (x < -0.05){
-      thumb.style.background = "var(--red)";
-      thumb.style.color = "#fff";
-    } else if (x > 0.05){
-      thumb.style.background = "var(--green)";
-      thumb.style.color = "#fff";
-    } else {
-      thumb.style.background = "rgba(0,0,0,.10)";
-      thumb.style.color = "rgba(0,0,0,.86)";
     }
 
-    const leftEm = clamp(-x,0,1), rightEm = clamp(x,0,1);
-    leftZone.style.color = `rgba(0,0,0,${lerp(.30,.70,leftEm)})`;
-    rightZone.style.color = `rgba(0,0,0,${lerp(.30,.70,rightEm)})`;
+    function saveState(state){
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+    }
 
-    stateEl.textContent = stateLabel(item.state);
-    center.textContent = (item.state==="neutral") ? item.w : item.m;
-    center.classList.toggle("meaning", item.state!=="neutral");
-  };
+    /* =========================
+       Dummy words (Phase 0)
+    ========================= */
+    function makeDummyWords(n){
+      // 의미 없는 더미라도 UI 확인용으로 길이 다양하게 섞음
+      const pool = [
+        ["abandon", "버리다, 포기하다"],
+        ["accurate", "정확한"],
+        ["benevolent", "자비로운, 선의의"],
+        ["consequence", "결과, 영향"],
+        ["diligent", "성실한"],
+        ["elaborate", "정교한, 상세히 설명하다"],
+        ["friction", "마찰, 충돌"],
+        ["gratitude", "감사"],
+        ["hesitate", "망설이다"],
+        ["inevitable", "피할 수 없는"],
+        ["justify", "정당화하다"],
+        ["keen", "날카로운, 열정적인"],
+        ["legitimate", "정당한, 합법적인"],
+        ["maintain", "유지하다"],
+        ["notion", "개념, 생각"],
+        ["objective", "객관적인, 목표"],
+        ["persistent", "끈질긴"],
+        ["reluctant", "내키지 않는"],
+        ["subtle", "미묘한"],
+        ["vulnerable", "취약한"]
+      ];
+      const out = [];
+      const base = Date.now().toString(36);
+      for(let i=0;i<n;i++){
+        const pick = pool[Math.floor(Math.random()*pool.length)];
+        out.push({
+          id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
+          word: pick[0],
+          meaning: pick[1],
+          status: "unknown"
+        });
+      }
+      return out;
+    }
 
-  const finalSnap = (x) => {
-    const TH = 0.28;
-    if (x <= -TH) return "dont";
-    if (x >= TH) return "know";
-    return "neutral";
-  };
+    /* =========================
+       UI refs
+    ========================= */
+    const toast = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
 
-  const render = () => {
-    const rows = $("rows");
-    rows.innerHTML = "";
+    const subline = document.getElementById("subline");
+    const emptyState = document.getElementById("emptyState");
+    const listEl = document.getElementById("list");
 
-    state.today.forEach((item, idx) => {
-      const el = document.createElement("div");
-      el.className = "row";
-      el.innerHTML = `
-        <div class="track">
-          <div class="zone left">몰라요</div>
-          <div class="center">${escapeHtml(item.w)}</div>
-          <div class="zone right">알아요</div>
-          <div class="thumb">${escapeHtml(item.w)}</div>
-        </div>
-        <div class="meta">
-          <div>상태: <span class="state" data-state>${stateLabel(item.state)}</span></div>
-          <div style="opacity:.7">드래그/클릭 가능</div>
-        </div>
-      `;
-      rows.appendChild(el);
+    const btnCharge = document.getElementById("btnCharge");
 
-      applyVisual(el, item);
+    const dlgCharge = document.getElementById("dlgCharge");
+    const tipText = document.getElementById("tipText");
+    const remainText = document.getElementById("remainText");
+    const dlgChargeDo = document.getElementById("dlgChargeDo");
+    const dlgChargeClose = document.getElementById("dlgChargeClose");
 
-      const thumb = el.querySelector(".thumb");
-      const track = el.querySelector(".track");
-      const leftZone = el.querySelector(".zone.left");
-      const rightZone = el.querySelector(".zone.right");
+    const overlay = document.getElementById("overlay");
+    const barFill = document.getElementById("barFill");
+    const overlaySub = document.getElementById("overlaySub");
 
-      leftZone.addEventListener("click", () => {
-        item.state="dont"; item.x=-1; saveState(state); applyVisual(el,item); updateTop();
+    /* =========================
+       Helpers
+    ========================= */
+    function showToast(msg){
+      toastText.textContent = msg;
+      toast.toast();
+    }
+
+    function pickTip(state){
+      // "하루 같은 TIP 중복 없음"을 localStorage로 단순 구현:
+      // day별로 tipIndexUsed 배열을 저장하고, 남은 것 중 랜덤 선택
+      const used = new Set(state.tipUsed || []);
+      const candidates = [];
+      for(let i=0;i<TIPS.length;i++){
+        if(!used.has(i)) candidates.push(i);
+      }
+      // 다 썼으면 리셋(Phase 0: 단순)
+      const pickFrom = candidates.length ? candidates : [...Array(TIPS.length)].map((_,i)=>i);
+      const idx = pickFrom[Math.floor(Math.random()*pickFrom.length)];
+      state.tipUsed = Array.from(new Set([...(state.tipUsed||[]), idx]));
+      return TIPS[idx];
+    }
+
+    function render(state){
+      const count = state.words.length;
+      subline.textContent = count === 0
+        ? "오늘은 0개로 시작해요. 충전하기로 추가하세요."
+        : `오늘의 단어 ${count}개 (Phase 0: 트랙 대신 리스트로 표시)`;
+
+      if(count === 0){
+        emptyState.style.display = "flex";
+        listEl.style.display = "none";
+      }else{
+        emptyState.style.display = "none";
+        listEl.style.display = "flex";
+        listEl.innerHTML = "";
+        state.words.forEach(w=>{
+          const row = document.createElement("div");
+          row.className = "row";
+          row.innerHTML = `
+            <div>
+              <div class="word">${escapeHtml(w.word)}</div>
+              <div class="meaning">${escapeHtml(w.meaning)}</div>
+            </div>
+            <div style="font-size:12px;color:rgba(255,255,255,.55);">미선택</div>
+          `;
+          listEl.appendChild(row);
+        });
+      }
+
+      // charge remain
+      const remain = Math.max(0, 3 - state.chargeUsed);
+      remainText.textContent = `${remain}/3`;
+
+      // 충전 버튼 비활성(3회 초과 방지)
+      btnCharge.disabled = remain <= 0;
+    }
+
+    function escapeHtml(s){
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    async function runChargeAnimation(){
+      overlay.classList.add("on");
+      barFill.style.width = "0%";
+      overlaySub.textContent = "단어를 추가하고 있어요…";
+
+      // 짧은 “차오름” 연출 (약 900ms)
+      const start = performance.now();
+      const dur = 900;
+      return new Promise(resolve=>{
+        function tick(now){
+          const t = Math.min(1, (now - start)/dur);
+          // 약간의 이징 느낌(너무 과하지 않게)
+          const eased = 1 - Math.pow(1 - t, 2.2);
+          barFill.style.width = Math.round(eased * 100) + "%";
+          if(t < 1) requestAnimationFrame(tick);
+          else {
+            setTimeout(()=>{
+              overlay.classList.remove("on");
+              resolve();
+            }, 180);
+          }
+        }
+        requestAnimationFrame(tick);
       });
-      rightZone.addEventListener("click", () => {
-        item.state="know"; item.x=1; saveState(state); applyVisual(el,item); updateTop();
-      });
+    }
 
-      // Drag
-      let dragging=false, startX=0, startPct=0;
-      thumb.addEventListener("pointerdown", (e)=>{
-        dragging=true;
-        thumb.setPointerCapture(e.pointerId);
-        startX = e.clientX;
+    /* =========================
+       Boot
+    ========================= */
+    let state = loadState();
+    render(state);
 
-        const rect = track.getBoundingClientRect();
-        const curLeft = parseFloat(thumb.style.left || "50");
-        startPct = curLeft/100;
+    /* =========================
+       Events
+    ========================= */
+    btnCharge.addEventListener("click", ()=>{
+      state = loadState(); // 최신화
+      // tip
+      const tip = pickTip(state);
+      tipText.textContent = "TIP: " + tip;
 
-        thumb.style.transition="none";
-        e.preventDefault();
-      });
+      // remain text
+      const remain = Math.max(0, 3 - state.chargeUsed);
+      remainText.textContent = `${remain}/3`;
 
-      thumb.addEventListener("pointermove", (e)=>{
-        if(!dragging) return;
-        const rect = track.getBoundingClientRect();
-        const dx = e.clientX - startX;
-        const pct = clamp(startPct + dx/rect.width, 0, 1);
-        item.x = (pct*2)-1; // -1..1
-        applyVisual(el,item);
-      });
+      // 버튼 상태
+      dlgChargeDo.disabled = remain <= 0;
 
-      const endDrag = ()=>{
-        if(!dragging) return;
-        dragging=false;
-        thumb.style.transition="";
-        const snapped = finalSnap(clamp(item.x||0,-1,1));
-        item.state = snapped;
-        item.x = snapped==="dont"?-1:snapped==="know"?1:0;
-        saveState(state);
-        applyVisual(el,item);
-        updateTop();
-      };
-
-      thumb.addEventListener("pointerup", endDrag);
-      thumb.addEventListener("pointercancel", endDrag);
+      dlgCharge.show();
+      saveState(state); // tipUsed 반영
     });
 
-    updateTop();
-  };
+    dlgChargeClose.addEventListener("click", ()=> dlgCharge.hide());
 
-  // Modals
-  const openBD = (id)=>$(id).classList.add("show");
-  const closeBD = (id)=>$(id).classList.remove("show");
-
-  $("btnCharge").addEventListener("click", ()=>{
-    state = loadState();
-    const left = Math.max(0, dailyChargeLimit - (state.meta.chargeUsed||0));
-    $("chargeTip").textContent = pickTipNoRepeatToday(state);
-    $("chargeSub").textContent = `누를 때마다 오늘의 단어가 ${todayTargetAdd}개 추가돼. (프로토타입: 프리셋 풀에서 랜덤 채움)`;
-    $("chargeRemain").textContent = `오늘 남은 충전 ${left}/${dailyChargeLimit}`;
-    $("chargeDo").disabled = left<=0;
-    openBD("chargeBD");
-  });
-  $("chargeClose").addEventListener("click", ()=>closeBD("chargeBD"));
-  $("chargeBD").addEventListener("click", (e)=>{ if(e.target.id==="chargeBD") closeBD("chargeBD"); });
-
-  $("chargeDo").addEventListener("click", async ()=>{
-    state = loadState();
-    const used = state.meta.chargeUsed||0;
-    const left = dailyChargeLimit - used;
-    if(left<=0){ toast("오늘 충전은 이미 3번 다 썼어."); return; }
-
-    const added = addTodayWords(state, todayTargetAdd);
-    state.meta.chargeUsed = used + 1;
-    saveState(state);
-
-    closeBD("chargeBD");
-    toast(`오늘의 단어 ${added}개 충전 완료!`);
-    render();
-  });
-
-  $("btnSubmit").addEventListener("click", ()=>{
-    state = loadState();
-    if(state.today.length===0){ toast("단어가 0개야. 먼저 충전하기!"); return; }
-    const un = state.today.filter(x=>x.state==="neutral").length;
-    if(un>0){ toast(`미선택 ${un}개가 있어. 전부 선택해야 제출 가능!`); return; }
-    $("submitTip").textContent = pickTipNoRepeatToday(state);
-    openBD("submitBD");
-  });
-  $("submitClose").addEventListener("click", ()=>closeBD("submitBD"));
-  $("submitBD").addEventListener("click", (e)=>{ if(e.target.id==="submitBD") closeBD("submitBD"); });
-
-  $("submitDo").addEventListener("click", async ()=>{
-    closeBD("submitBD");
-    state = loadState();
-
-    const now = Date.now();
-    let submitted = 0;
-
-    state.today.forEach(item=>{
-      const w=item.w;
-      const ws = state.wordStats[w] || { latest:null, knowCount:0, dontCount:0, lastKnowAt:null, lastDontAt:null, lastAnyAt:null };
-      if(item.state==="know"){
-        ws.latest="know"; ws.knowCount++; ws.lastKnowAt=now; ws.lastAnyAt=now; submitted++;
-      } else if(item.state==="dont"){
-        ws.latest="dont"; ws.dontCount++; ws.lastDontAt=now; ws.lastAnyAt=now; submitted++;
+    dlgChargeDo.addEventListener("click", async ()=>{
+      state = loadState();
+      const remain = 3 - state.chargeUsed;
+      if(remain <= 0){
+        showToast("오늘 충전은 3회까지예요.");
+        dlgCharge.hide();
+        return;
       }
-      state.wordStats[w]=ws;
+
+      // UX: 모달 닫고 오버레이 “차오름”
+      dlgCharge.hide();
+      await runChargeAnimation();
+
+      // 실제 충전: +10 더미 추가
+      state.words = state.words.concat(makeDummyWords(10));
+      state.chargeUsed += 1;
+      saveState(state);
+
+      render(state);
+      showToast(`충전 완료! +10개 추가 (남은 ${Math.max(0,3-state.chargeUsed)}/3)`);
     });
-
-    state.processedSubmitCount = (state.processedSubmitCount||0) + submitted;
-    saveState(state);
-
-    openBD("overlayBD");
-    await sleep(700);
-    window.location.href = "hub.html";
-  });
-
-  // Boot
-  render();
-})();
-</script>
+  </script>
 </body>
 </html>
