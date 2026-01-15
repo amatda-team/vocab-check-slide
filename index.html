@@ -14,10 +14,10 @@
       --app-max: 520px;
 
       /* timings */
-      --move-ms: 360ms;          /* pill 이동 */
-      --peek-in-ms: 120ms;       /* word->meaning 페이드 */
-      --peek-hold-ms: 560ms;     /* meaning 유지 */
-      --peek-out-ms: 200ms;      /* meaning->word 페이드 */
+      --move-ms: 360ms;
+      --peek-in-ms: 200ms;
+      --peek-hold-ms: 2500ms;
+      --peek-out-ms: 200ms;
 
       /* Theme */
       --bg0: #070a10;
@@ -36,12 +36,11 @@
 
       /* pill */
       --pill-h: 44px;
-      --pill-minw: 140px;    /* ✅ min-width */
-      --pill-pad-x: 14px;    /* pill 내부 좌우 padding */
+      --pill-minw: 140px;
+      --pill-pad-x: 14px;
       --pill-bd: 1px;
 
       --pad: 12px;
-      --lr-pad: 12px;
 
       /* Lights */
       --red:   255, 90,  90;
@@ -84,7 +83,6 @@
       padding: 18px var(--pad) 120px;
     }
 
-    /* Header */
     .header{
       display:flex;
       align-items:center;
@@ -100,7 +98,6 @@
       line-height: 1.1;
     }
 
-    /* toast */
     .toast-wrap{
       position: sticky;
       top: 10px;
@@ -113,7 +110,7 @@
       border-radius: 14px;
     }
 
-    /* ✅ 단 1번만 등장하는 고정 신호등(헤더 아래) */
+    /* 고정 신호등(헤더 아래 1회) */
     .lights-bar{
       position: relative;
       height: 36px;
@@ -157,7 +154,6 @@
     .light-dot.amb{ background: rgba(var(--amber), .92); box-shadow: 0 0 22px rgba(var(--amber), .22), 0 0 46px rgba(var(--amber), .10); }
     .light-dot.grn{ background: rgba(var(--green), .92); box-shadow: 0 0 22px rgba(var(--green), .22), 0 0 46px rgba(var(--green), .10); }
 
-    /* list */
     .list{
       display:flex;
       flex-direction:column;
@@ -176,7 +172,6 @@
     }
     .empty b{ color: var(--text); }
 
-    /* Track */
     .track{
       position: relative;
       height: var(--track-h);
@@ -187,7 +182,7 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* ✅ 틴트는 전체를 꽉 채우지 않고 "짧고 은은한" 라디얼 */
+    /* tint: 전체 채움 X */
     .tint{
       position:absolute;
       inset:0;
@@ -208,7 +203,6 @@
       background: radial-gradient(420px 190px at 100% 55%, rgba(255,170,70,.12), transparent 70%);
     }
 
-    /* zones */
     .zone{
       position:absolute;
       top:0; bottom:0;
@@ -219,7 +213,6 @@
     .zone.center{ left:33%; width:34%; }
     .zone.right{ right:0; width:34%; }
 
-    /* Pill */
     .pill{
       position:absolute;
       top: 50%;
@@ -238,9 +231,8 @@
       user-select:none;
       -webkit-user-select:none;
       touch-action: manipulation;
-      cursor: pointer;
 
-      /* default look (초기) */
+      /* default look */
       background: rgba(230,235,245,var(--default-pill-alpha));
       border: var(--pill-bd) solid rgba(255,255,255,var(--default-pill-bd-alpha));
 
@@ -253,20 +245,22 @@
 
       z-index: 4;
       overflow: hidden;
+      pointer-events: none; /* ✅ pill 자체 클릭 제거: 영역 클릭만 */
     }
 
     .pill-text{
       display:block;
       width:100%;
       text-align:center;
-      white-space: nowrap;   /* ✅ 줄바꿈 금지 */
-      overflow: visible;     /* ✅ 자르기 금지 (pill이 늘어날 거라) */
-      text-overflow: clip;   /* ✅ 말줄임 금지 */
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: clip;
       font-weight: 900;
       letter-spacing: -.2px;
       color: rgba(255,255,255,.92);
       font-size: 15px;
       transition: opacity 120ms ease;
+      pointer-events: none;
     }
     .pill.is-meaning .pill-text{
       font-weight: 600;
@@ -274,7 +268,6 @@
       font-size: 14px;
     }
 
-    /* Footer (유지) */
     .footer{
       position: fixed;
       left:0; right:0; bottom:0;
@@ -298,7 +291,6 @@
       margin: 0 auto;
     }
 
-    /* Shoelace tweaks */
     sl-dialog::part(panel){
       border-radius: 18px;
       border: 1px solid rgba(255,255,255,.12);
@@ -326,7 +318,6 @@
     .btn-row sl-button{ flex: 1 1 0; }
     .btn-row sl-button::part(base){ width: 100%; }
 
-    /* measurer */
     .measure{
       position:absolute;
       left:-9999px;
@@ -352,7 +343,6 @@
       <sl-button id="btnCharge" variant="primary">충전하기</sl-button>
     </div>
 
-    <!-- ✅ 고정 신호등(트랙별이 아니라 1회만) -->
     <div class="lights-bar" aria-label="신호등">
       <span class="light-dot red" aria-hidden="true"></span>
       <span class="light-dot amb" aria-hidden="true"></span>
@@ -373,7 +363,6 @@
     </div>
   </footer>
 
-  <!-- Charge dialog -->
   <sl-dialog id="dlgCharge" label="충전하기">
     <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
     <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
@@ -387,21 +376,6 @@
   <span id="measurer" class="measure"></span>
 
   <script>
-  /* =========================================================
-    Rebuild v0 (요구사항 기반)
-    - 상태: default / red / yellow / green
-    - default는 "어느 영역이든 한번 터치하면" 다시 돌아오지 않음
-    - 슬라이드/드래그 제거 (클릭/터치로 이동)
-    - 영역 터치: pill이 트랙 따라 스무스 이동 + meaning peek (word->meaning->word)
-    - pill 클릭: 같은 meaning peek 재생
-    - meaning은 말줄임/줄바꿈/자르기 금지 => pill width를 부드럽게 조절
-    - 색상/틴트는 이동 중 연속 변화 유지, 틴트는 전체를 꽉 채우지 않음
-    - 라이트(신호등)은 헤더 아래에 1번만 고정 표시
-  ========================================================= */
-
-  /* =========================
-     Storage (optional)
-  ========================= */
   const LS_KEY = "signal_vocab_rebuild_v0";
   const todayKey = (() => {
     const d = new Date();
@@ -430,17 +404,14 @@
     localStorage.setItem(LS_KEY, JSON.stringify(state));
   }
 
-  /* =========================
-     Dummy words
-  ========================= */
   function makeDummyWords(n){
     const pool = [
       ["abandon", "버리다, 포기하다"],
       ["accurate", "정확한"],
       ["benevolent", "자비로운, 선의의"],
-      ["consequence", "결과, 영향"],
+      ["consequencedfdfdffdf", "결과, 영향"],
       ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다"],
+      ["elaborate", "정교한, 상세히 설명하다, ㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹㅇ"],
       ["friction", "마찰, 충돌"],
       ["gratitude", "감사"],
       ["hesitate", "망설이다"],
@@ -454,22 +425,16 @@
         id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
         word: pick[0],
         meaning: pick[1],
-        status: "default",     // ✅ default/red/yellow/green
-        touched: false         // ✅ 한번이라도 영역 터치하면 true
+        status: "default",
+        touched: false
       });
     }
     return out;
   }
 
-  /* =========================
-     UI refs
-  ========================= */
   const toast = document.getElementById("toast");
   const toastText = document.getElementById("toastText");
-  function showToast(msg){
-    toastText.textContent = msg;
-    toast.toast();
-  }
+  function showToast(msg){ toastText.textContent = msg; toast.toast(); }
 
   const btnCharge = document.getElementById("btnCharge");
   const dlgCharge = document.getElementById("dlgCharge");
@@ -490,9 +455,6 @@
       .replaceAll("'", "&#039;");
   }
 
-  /* =========================
-     Color helpers (continuous)
-  ========================= */
   const RGB_RED   = [255, 90, 90];
   const RGB_AMBER = [255, 170, 70];
   const RGB_GREEN = [80, 220, 140];
@@ -504,7 +466,6 @@
     return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
   }
   function mix3(p){
-    // p: 0..1, red -> amber -> green
     let rgb;
     if(p <= 0.5){
       const t = p / 0.5;
@@ -524,11 +485,6 @@
     return rgb;
   }
 
-  /* =========================
-     Text measure => pill width
-     - 줄바꿈/말줄임/자르기 없이
-     - 텍스트 길이에 맞춰 width를 부드럽게 조절
-  ========================= */
   function measureTextPx(text, isMeaning){
     measurer.style.fontSize = isMeaning ? "14px" : "15px";
     measurer.style.fontWeight = isMeaning ? "600" : "900";
@@ -540,16 +496,11 @@
     const minW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-minw")) || 140;
     const padX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-pad-x")) || 14;
     const bd = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-bd")) || 1;
-
-    // 텍스트 폭 + 좌우 padding + border
     const tW = measureTextPx(text, isMeaning);
     const w = Math.max(minW, tW + (padX*2) + (bd*2) + 6);
     pillEl.style.width = w + "px";
   }
 
-  /* =========================
-     Track builder (동작 핵심)
-  ========================= */
   function buildTrackRow(wordObj, state){
     const el = document.createElement("div");
     el.className = "track";
@@ -565,7 +516,7 @@
       <div class="zone center" aria-label="가운데(YELLOW)"></div>
       <div class="zone right" aria-label="오른쪽(GREEN)"></div>
 
-      <div class="pill" role="button" aria-label="단어 필">
+      <div class="pill" aria-hidden="true">
         <span class="pill-text">${escapeHtml(wordObj.word)}</span>
       </div>
     `;
@@ -582,28 +533,21 @@
     const pill   = el.querySelector(".pill");
     const txt    = el.querySelector(".pill-text");
 
-    // 기본: word 기준으로 min-width 맞추기(단어가 길면 확장)
     setPillWidthToText(pill, wordObj.word || "", false);
 
-    // 현재 위치/진행도
-    let curP = 0.5; // default는 중앙에서 시작
-    let targetP = 0.5;
+    let curP = 0.5;
     let moving = false;
 
-    // peek 동시성 방지
     let peekToken = 0;
-    let showingMeaning = false;
 
     function statusToP(status){
       if(status === "red") return 0;
       if(status === "green") return 1;
       if(status === "yellow") return 0.5;
-      // default: center
-      return 0.5;
+      return 0.5; // default
     }
 
     function pToX(p){
-      // track 내부에서 pill이 좌/중/우로 움직이도록 minX/maxX 계산
       const trackW = el.getBoundingClientRect().width;
       const pillW = pill.getBoundingClientRect().width;
       const pad = 10;
@@ -612,21 +556,17 @@
       const minX = -(half - halfP - pad);
       const maxX = +(half - halfP - pad);
       const x = lerp(minX, maxX, p);
-      return { x, minX, maxX };
+      return { x };
     }
 
     function applyContinuousVisual(p){
-      // 1) pill 색상 연속 변화
       const rgb = mix3(p);
-      const a = 0.30;
-      const bdA = 0.32;
-      pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-      pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${bdA})`;
+      pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.30)`;
+      pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
 
-      // 2) tint 연속 변화 (전체 채움 X : CSS radial gradient)
-      const redI = clamp01((0.5 - p) / 0.5);      // 0.5->0 갈수록 1
-      const greenI = clamp01((p - 0.5) / 0.5);    // 0.5->1 갈수록 1
-      const yellowI = 1 - clamp01(Math.abs(p - 0.5) / 0.5); // center peak
+      const redI = clamp01((0.5 - p) / 0.5);
+      const greenI = clamp01((p - 0.5) / 0.5);
+      const yellowI = 1 - clamp01(Math.abs(p - 0.5) / 0.5);
 
       tintL.style.opacity  = String(Math.min(1, redI * 0.85));
       tintR.style.opacity  = String(Math.min(1, greenI * 0.85));
@@ -635,7 +575,6 @@
     }
 
     function setDefaultVisual(){
-      // default: pill은 CSS 기본값(연한 회색)으로 복귀시키고, tint는 꺼둠
       pill.style.background = "";
       pill.style.borderColor = "";
       tintL.style.opacity = "0";
@@ -644,23 +583,22 @@
       tintAR.style.opacity = "0";
     }
 
+    function setPillTransformByP(p){
+      const { x } = pToX(p);
+      pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
+    }
+
     function moveToP(nextP, animate){
-      // 폭이 변할 수 있으니 이동 직전에 재계산
-      const { x } = pToX(nextP);
       if(!animate){
         pill.style.transition = "none";
-        pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
-        pill.offsetHeight; // force reflow
+        setPillTransformByP(nextP);
+        pill.offsetHeight;
         pill.style.transition = "";
         curP = nextP;
-        applyContinuousVisual(curP);
         return;
       }
 
-      // CSS transform은 자동 tween이지만, 색/틴트는 requestAnimationFrame으로 연속 업데이트
       moving = true;
-      targetP = nextP;
-
       const moveMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--move-ms")) || 360;
       const t0 = performance.now();
       const fromP = curP;
@@ -671,11 +609,7 @@
         const e = easeInOutCubic(t);
         const p = lerp(fromP, toP, e);
 
-        // 위치
-        const { x } = pToX(p);
-        pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
-
-        // 색/틴트 연속
+        setPillTransformByP(p);
         applyContinuousVisual(p);
 
         if(t < 1){
@@ -690,15 +624,13 @@
     }
 
     function commitStatus(nextStatus){
-      // default -> (첫 터치) 이후 default 금지
       const idx = state.words.findIndex(w => w.id === wordObj.id);
       if(idx < 0) return;
 
       const prev = state.words[idx].status || "default";
-      if(prev === "default"){
-        state.words[idx].touched = true;
-      }
-      // default로는 못 돌아감(요구사항)
+      if(prev === "default") state.words[idx].touched = true;
+
+      // touched 이후 default 금지
       if(state.words[idx].touched && nextStatus === "default"){
         nextStatus = "yellow";
       }
@@ -708,7 +640,6 @@
     }
 
     function startPeek(){
-      // ✅ 이동/연타 중에도 꼬이지 않게 토큰으로 관리
       const token = ++peekToken;
 
       const inMs   = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--peek-in-ms")) || 120;
@@ -718,20 +649,19 @@
       const word = wordObj.word || "";
       const meaning = wordObj.meaning || "";
 
-      // 1) word fade out
-      showingMeaning = true;
       txt.style.opacity = "0";
 
       setTimeout(()=>{
         if(token !== peekToken) return;
 
-        // 2) swap to meaning + widen pill
         pill.classList.add("is-meaning");
         txt.textContent = meaning;
         setPillWidthToText(pill, meaning, true);
         txt.style.opacity = "1";
 
-        // 3) hold then back
+        // 폭 변경 후 현재 p 위치로 재정렬
+        setPillTransformByP(curP);
+
         setTimeout(()=>{
           if(token !== peekToken) return;
 
@@ -741,16 +671,10 @@
 
             pill.classList.remove("is-meaning");
             txt.textContent = word;
-
-            // word 기준으로 다시 width 조정
             setPillWidthToText(pill, word, false);
-
             txt.style.opacity = "1";
-            showingMeaning = false;
 
-            // width 바뀌면 X 재계산 필요 -> 현재 curP 유지 위치로 재정렬
-            const { x } = pToX(curP);
-            pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
+            setPillTransformByP(curP);
           }, outMs);
 
         }, holdMs);
@@ -759,15 +683,13 @@
     }
 
     function onZone(status){
-      // ✅ 첫 터치 이후 default 금지
-      if(wordObj.status === "default"){
-        wordObj.touched = true;
-      }
+      // 상태 갱신
       wordObj.status = status;
+      if(wordObj.status === "default") wordObj.touched = true;
 
       commitStatus(status);
 
-      // default면 기본색, 그 외는 연속색 표시
+      // 이동 + 비주얼
       if(status === "default"){
         setDefaultVisual();
         moveToP(0.5, true);
@@ -776,71 +698,48 @@
         moveToP(p, true);
       }
 
-      // 의미 peek
+      // meaning peek
       startPeek();
     }
 
-    // pill 클릭: 다시 뜻 보였다가 사라짐 (상태 이동 없음)
-    function onPill(){
-      // default라도 peek는 가능(요구사항 5)
-      // 단, default 상태라면 tint/색은 기본 유지
-      if(wordObj.status === "default"){
-        setDefaultVisual();
-        const { x } = pToX(curP);
-        pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
-      }else{
-        applyContinuousVisual(curP);
-      }
-      startPeek();
-    }
+    zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("red"); else onZone("red"); });
+    zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("yellow"); else onZone("yellow"); });
+    zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("green"); else onZone("green"); });
 
-    // 이벤트
-    zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("red"); });
-    zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("yellow"); });
-    zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("green"); });
-    pill.addEventListener("click", (e)=>{ e.stopPropagation(); onPill(); });
-
-    // 초기 상태 적용
+    // 초기 상태 반영 (✅ default면 절대 연속 비주얼 호출 안 함)
     const initStatus = wordObj.status || "default";
     curP = statusToP(initStatus);
 
-    // 초기 배치: default는 기본, 나머지는 연속색+틴트
     requestAnimationFrame(()=>{
+      setPillWidthToText(pill, wordObj.word || "", false);
+      moveToP(curP, false);
       if(initStatus === "default"){
         setDefaultVisual();
       }else{
         applyContinuousVisual(curP);
       }
-      moveToP(curP, false);
     });
 
-    // resize 시 위치 재정렬
+    // resize: 위치 재정렬
     let rt = null;
     window.addEventListener("resize", ()=>{
       clearTimeout(rt);
       rt = setTimeout(()=>{
         const st = wordObj.status || "default";
-        const p = statusToP(st);
-        curP = p;
-        // 폭이 바뀌면 위치 재계산
-        const { x } = pToX(curP);
-        pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
+        curP = statusToP(st);
+        setPillTransformByP(curP);
       }, 80);
     }, { passive:true });
 
     return el;
   }
 
-  /* =========================
-     Render
-  ========================= */
   let state = loadState();
 
   function render(){
     listEl.innerHTML = "";
     const count = state.words.length;
 
-    // 충전 제한(기본 유지: 3회)
     const remain = Math.max(0, 3 - state.chargeUsed);
     remainText.textContent = `${remain}/3`;
     btnCharge.disabled = remain <= 0;
@@ -856,9 +755,7 @@
     }
   }
 
-  /* =========================
-     Charge modal (동작 유지)
-  ========================= */
+  // Charge modal
   btnCharge.addEventListener("click", ()=>{
     state = loadState();
     const remain = Math.max(0, 3 - state.chargeUsed);
@@ -866,7 +763,6 @@
     dlgChargeDo.disabled = remain <= 0;
     dlgCharge.show();
   });
-
   dlgChargeClose.addEventListener("click", ()=> dlgCharge.hide());
 
   dlgChargeDo.addEventListener("click", ()=>{
@@ -884,14 +780,6 @@
     render();
     showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
   });
-
-  /* =========================
-     Boot
-  ========================= */
-  // 첫 실행: 기본 0개로 시작(요구사항/이전 합의)
-  // 단, 테스트 편의상 "처음 접속 시 0개"가 맞으면 그대로 두면 됨.
-  // 필요하면 아래 주석 해제해서 첫 진입에 10개 자동 생성 가능.
-  // if(state.words.length === 0){ state.words = makeDummyWords(10); saveState(state); }
 
   render();
   requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
