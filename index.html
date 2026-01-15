@@ -1,4 +1,431 @@
-<script>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>신호등보카 (Slide)</title>
+
+  <!-- Shoelace (CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/shoelace.js"></script>
+
+  <style>
+    :root{
+      --app-max: 520px;
+
+      /* ✅ Boot motion controls */
+      --boot-hold-ms: 600ms;
+      --boot-move-ms: 2600ms;
+      --boot-ease: cubic-bezier(.2,.9,.25,1);
+
+      /* ✅ Peek controls */
+      --peek-in-ms: 120ms;
+      --peek-hold-ms: 520ms;
+      --peek-out-ms: 260ms;
+
+      /* Theme */
+      --bg0: #070a10;
+      --bg1: #0b0f14;
+
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.58);
+
+      --track: rgba(255,255,255,.06);
+      --line: rgba(255,255,255,.10);
+
+      --radius: 18px;
+      --pill-radius: 999px;
+
+      --track-h: 72px;
+      --pill-h: 44px;
+      --pill-w: 140px;
+
+      --pad: 12px;
+      --lr-pad: 12px;
+
+      /* Lights */
+      --red:   255, 90,  90;
+      --green:  80, 220, 140;
+      --amber: 255, 170,  70;
+
+      /* ✅ unknown pill transparency (yellow light recognition)
+         - "너무 투명" 이슈로 살짝 올림 */
+      --unknown-pill-alpha: .20;
+      --unknown-pill-bd-alpha: .13;
+    }
+
+    *{ box-sizing: border-box; }
+
+    html{ background: var(--bg0); }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Helvetica Neue", sans-serif;
+      color: var(--text);
+      min-height: 100svh;
+      background: transparent;
+    }
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(1200px 800px at 50% -200px, rgba(80,130,255,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1) 40%, var(--bg0));
+      transform: translateZ(0);
+    }
+
+    sl-dialog:not(:defined){ display:none !important; }
+    sl-alert:not(:defined){ display:none !important; }
+    sl-button:not(:defined){ visibility:hidden; }
+
+    .app{
+      max-width: var(--app-max);
+      margin: 0 auto;
+      padding: 18px var(--pad) 120px;
+    }
+
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin: 6px 0 12px;
+    }
+    .header h1{
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -.4px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .toast-wrap{
+      position: sticky;
+      top: 10px;
+      z-index: 999;
+      padding: 0 var(--pad);
+    }
+    .toast-wrap sl-alert{
+      max-width: var(--app-max);
+      margin: 0 auto;
+      border-radius: 14px;
+    }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .empty{
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px dashed rgba(255,255,255,.16);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align:center;
+      line-height: 1.6;
+    }
+    .empty b{ color: var(--text); }
+
+    /* Track */
+    .track{
+      position: relative;
+      height: var(--track-h);
+      border-radius: var(--radius);
+      background: var(--track);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .track.preboot{ opacity: 0; transform: translateY(2px); }
+
+    /* Continuous tints (red/green + amber ambiance) */
+    .tint{
+      position:absolute;
+      inset:0;
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .10s linear;
+    }
+    .tint.left{
+      background: radial-gradient(640px 260px at 0% 55%, rgba(255,90,90,.22), transparent 62%);
+    }
+    .tint.right{
+      background: radial-gradient(640px 260px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
+    }
+    /* ✅ amber tint는 "끝까지"가 아니라 은은+짧게 */
+    .tint.amberL{
+      background: radial-gradient(520px 220px at 0% 55%, rgba(255,170,70,.12), transparent 66%);
+    }
+    .tint.amberR{
+      background: radial-gradient(520px 220px at 100% 55%, rgba(255,170,70,.12), transparent 66%);
+    }
+
+    /* Lights layer */
+    .lights{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index: 1;
+    }
+    .light{
+      position:absolute;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      transform: translateY(-50%);
+      opacity: .55; /* overridden inline */
+      filter: saturate(1.05);
+    }
+    .light.left{ left: var(--lr-pad); }
+    .light.right{ right: var(--lr-pad); }
+    /* center amber "under pill" */
+    .light.center{
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+    }
+
+    .light::after{
+      content:"";
+      position:absolute;
+      inset:-18px;
+      border-radius: 999px;
+      opacity: .65;
+      filter: blur(10px);
+      background: radial-gradient(circle, rgba(255,255,255,.35), transparent 60%);
+      mix-blend-mode: screen;
+    }
+
+    /* Meaning slots */
+    .meaning-slot{
+      position:absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 46%;
+      padding: 0 var(--lr-pad);
+      pointer-events:none;
+
+      opacity: 0;
+      transition: opacity .10s linear, transform .16s ease;
+
+      /* ✅ 말줄임표 제거 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      color: rgba(255,255,255,.78);
+      z-index: 2;
+    }
+    .meaning-left{ left: 0; text-align:left; }
+    .meaning-right{ right: 0; text-align:right; }
+
+    /* Click zones */
+    .zone{
+      position:absolute;
+      top:0; bottom:0;
+      z-index: 3;
+      background: transparent;
+    }
+    .zone.left{ left:0; width:34%; }
+    .zone.center{ left:33%; width:34%; }
+    .zone.right{ right:0; width:34%; }
+
+    /* Pill (center-anchored so width expands symmetrically) */
+    .pill{
+      position:absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateX(0px);
+      height: var(--pill-h);
+      width: var(--pill-w);
+      border-radius: var(--pill-radius);
+
+      background: rgba(230,235,245,.22);
+      border: 1px solid rgba(255,255,255,.14);
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0 14px;
+
+      user-select:none;
+      -webkit-user-select:none;
+
+      touch-action: pan-y;
+
+      will-change: transform, background, border-color, width;
+      transition:
+        transform .18s cubic-bezier(.2,.9,.25,1),
+        background .10s linear,
+        border-color .10s linear,
+        width .22s ease;
+
+      z-index: 4;
+
+      /* ✅ 말줄임표 제거 */
+      overflow: hidden;
+    }
+
+    .pill.dragging{
+      transition:none !important;
+      touch-action: none;
+    }
+    .pill.booting{ transition: none !important; }
+
+    /* Text inside pill */
+    .pill-text{
+      display:block;
+      width: 100%;
+      text-align:center;
+
+      /* ✅ 말줄임표 제거 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+
+      /* default(word) */
+      font-weight: 900;
+      letter-spacing: -.2px;
+      color: rgba(255,255,255,.92);
+
+      /* ✅ 기본 폰트 크기 명시 (yellow 폰트 불일치 방지) */
+      font-size: 15px;
+
+      transition: opacity .12s ease;
+    }
+
+    /* meaning style inside pill (yellow peek) */
+    .pill.is-meaning .pill-text{
+      font-weight: 600;
+      color: rgba(255,255,255,.78);
+      font-size: 14px; /* ✅ red/green meaning 느낌과 통일 */
+    }
+
+    /* Unknown pill more transparent to reveal center amber light */
+    .track.is-unknown .pill{
+      background: rgba(230,235,245,var(--unknown-pill-alpha));
+      border-color: rgba(255,255,255,var(--unknown-pill-bd-alpha));
+    }
+
+    /* Footer */
+    .footer{
+      position: fixed;
+      left:0; right:0; bottom:0;
+      padding: 12px var(--pad) calc(12px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.35) 25%, rgba(0,0,0,.55));
+      backdrop-filter: blur(10px);
+      z-index: 50;
+
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events:none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    html.ready .footer{
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events:auto;
+    }
+    .footer-inner{
+      max-width: var(--app-max);
+      margin: 0 auto;
+    }
+
+    /* Shoelace tweaks */
+    sl-dialog::part(panel){
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(20,24,32,.96);
+      color: var(--text);
+    }
+    sl-dialog::part(title){
+      font-weight: 900;
+      letter-spacing: -.2px;
+    }
+    sl-button::part(base){ border-radius: 14px; }
+
+    .charge-msg{
+      font-size: 14px;
+      color: rgba(255,255,255,.86);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .charge-remain{
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .btn-row{ display:flex; gap: 10px; }
+    .btn-row sl-button{ flex: 1 1 0; }
+    .btn-row sl-button::part(base){ width: 100%; }
+
+    /* hidden measurer */
+    .measure{
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      visibility: hidden;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="toast-wrap" aria-live="polite" aria-atomic="true">
+    <sl-alert id="toast" variant="primary" duration="2200" closable>
+      <sl-icon slot="icon" name="info-circle"></sl-icon>
+      <span id="toastText">안내</span>
+    </sl-alert>
+  </div>
+
+  <main class="app">
+    <div class="header">
+      <h1>오늘의 단어</h1>
+      <sl-button id="btnCharge" variant="primary">충전하기</sl-button>
+    </div>
+
+    <div id="emptyState" class="empty" style="display:none;">
+      아직 오늘의 단어가 <b>0개</b>예요.<br>
+      상단의 <b>충전하기</b>로 10개씩 추가해 주세요.
+    </div>
+
+    <div id="list" class="list"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <sl-button id="ctaSubmit" variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 2~)</sl-button>
+    </div>
+  </footer>
+
+  <!-- Charge dialog -->
+  <sl-dialog id="dlgCharge" label="충전하기">
+    <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
+    <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
+
+    <div class="btn-row">
+      <sl-button id="dlgChargeDo" variant="primary">충전하기</sl-button>
+      <sl-button id="dlgChargeClose" variant="default" outline>닫기</sl-button>
+    </div>
+  </sl-dialog>
+
+  <span id="measurer" class="measure"></span>
+
+  <script>
 /* =========================================================
   Signal Vocab - Step 1: Minimal JS Core
   - HTML/CSS 그대로
@@ -136,7 +563,11 @@ function buildTrackRow(wordObj){
   const el = document.createElement("div");
   const st = wordObj.status || "unknown";
 
-  el.className = `track ${st === "unknown" ? "is-unknown" : st === "red" ? "is-red" : st === "green" ? "is-green" : "is-yellow"}`;
+  el.className = `track ${
+    st === "unknown" ? "is-unknown" :
+    st === "red" ? "is-red" :
+    st === "green" ? "is-green" : "is-yellow"
+  }`;
   el.dataset.id = wordObj.id;
 
   el.innerHTML = `
@@ -163,7 +594,7 @@ function buildTrackRow(wordObj){
     </div>
   `;
 
-  // meaning 슬롯은 Step1에서도 그냥 채워둠(디자인 유지용)
+  // Step1에서도 슬롯 텍스트는 채움(디자인 유지)
   el.querySelector(".meaning-left").textContent = wordObj.meaning || "";
   el.querySelector(".meaning-right").textContent = wordObj.meaning || "";
 
@@ -181,7 +612,7 @@ function buildTrackRow(wordObj){
     setStatusById(wordObj.id, "green");
   });
 
-  // Step1: pill 탭은 unknown이면 yellow로만 바꾸는 “최소 동작”만
+  // pill 탭: unknown이면 yellow로만(최소 동작)
   el.querySelector(".pill").addEventListener("click", ()=>{
     const cur = wordObj.status || "unknown";
     if(cur === "unknown") setStatusById(wordObj.id, "yellow");
@@ -250,4 +681,6 @@ dlgChargeDo.addEventListener("click", ()=>{
 ========================= */
 render();
 requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
-</script>
+  </script>
+</body>
+</html>
