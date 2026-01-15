@@ -13,28 +13,27 @@
     :root{
       --app-max: 520px;
 
-      /* ✅ 테마 유지(다크) */
+      /* Theme (keep) */
       --bg0: #070a10;
       --bg1: #0b0f14;
 
       --text: rgba(255,255,255,.92);
       --muted: rgba(255,255,255,.58);
-      --muted2: rgba(255,255,255,.42);
 
       --track: rgba(255,255,255,.06);
-      --track2: rgba(255,255,255,.08);
       --line: rgba(255,255,255,.10);
 
       --neutral: rgba(230,235,245,.22);
-      --danger: rgba(255,90,90,.28);
-      --ok: rgba(80,220,140,.28);
+      --danger: rgba(255,90,90,.30);
+      --ok: rgba(80,220,140,.30);
 
       --radius: 18px;
       --pill-radius: 999px;
 
-      --track-h: 68px;
+      --track-h: 72px;
       --pill-h: 44px;
-      --pill-w: 128px;
+      --pill-w: 140px;
+
       --pad: 12px;
     }
 
@@ -49,29 +48,31 @@
       min-height: 100svh;
     }
 
-    /* ✅ iOS에서 Shoelace 정의 전 내용이 바닥에 노출되는 현상 방지 */
+    /* iOS: prevent custom element flash */
     sl-dialog:not(:defined){ display:none !important; }
     sl-alert:not(:defined){ display:none !important; }
-    sl-button:not(:defined){ visibility:hidden; } /* 초기 깜빡임 보완 */
+    sl-button:not(:defined){ visibility:hidden; }
 
-    /* ✅ "한 겹" 레이아웃: 카드/섹션 배경 없이 그냥 콘텐츠만 */
     .app{
       max-width: var(--app-max);
       margin: 0 auto;
       padding: 18px var(--pad) 120px;
     }
 
-    h1{
-      margin: 8px 0 14px;
+    /* ✅ Heading + button same row */
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin: 6px 0 12px;
+    }
+    .header h1{
+      margin: 0;
       font-size: 28px;
       letter-spacing: -.4px;
       font-weight: 900;
-    }
-
-    .top-actions{
-      display:flex;
-      justify-content:flex-end;
-      margin-bottom: 12px;
+      line-height: 1.1;
     }
 
     /* Toast */
@@ -87,13 +88,26 @@
       border-radius: 14px;
     }
 
-    /* Track list */
+    /* List */
     .list{
       display:flex;
       flex-direction:column;
       gap: 14px;
+      margin-top: 12px;
     }
 
+    .empty{
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px dashed rgba(255,255,255,.16);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align:center;
+      line-height: 1.6;
+    }
+    .empty b{ color: var(--text); }
+
+    /* Track */
     .track{
       position: relative;
       height: var(--track-h);
@@ -104,56 +118,7 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* 좌/우 라벨 (트랙 안) */
-    .label{
-      position:absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-      color: rgba(255,255,255,.55);
-      letter-spacing: -.2px;
-      user-select:none;
-      -webkit-user-select:none;
-      transition: opacity .16s ease, transform .16s ease;
-      pointer-events:none;
-    }
-    .label.left{ left: 16px; }
-    .label.right{ right: 16px; text-align:right; }
-
-    /* 중앙 텍스트 레이어: 뜻(고정 시) */
-    .center{
-      position:absolute;
-      left: 0;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      text-align:center;
-      pointer-events:none;
-      padding: 0 10px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap: 8px;
-    }
-    .meaning{
-      font-size: 14px;
-      color: rgba(255,255,255,.78);
-      opacity: 0;
-      transform: translateY(2px);
-      transition: opacity .18s ease, transform .18s ease;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 85%;
-    }
-    .meaning.on{
-      opacity: 1;
-      transform: translateY(0px);
-    }
-    .meaning.small{ font-size: 13px; }
-    .meaning.smaller{ font-size: 12px; }
-
-    /* 드래그 정도에 따른 은은한 색 변화(배경 틴트) */
+    /* tint continuous */
     .tint{
       position:absolute;
       inset:0;
@@ -162,13 +127,80 @@
       transition: opacity .10s linear;
     }
     .tint.left{
-      background: radial-gradient(600px 240px at 0% 50%, rgba(255,90,90,.22), transparent 62%);
+      background: radial-gradient(600px 240px at 0% 55%, rgba(255,90,90,.22), transparent 62%);
     }
     .tint.right{
-      background: radial-gradient(600px 240px at 100% 50%, rgba(80,220,140,.22), transparent 62%);
+      background: radial-gradient(600px 240px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
     }
 
-    /* 클릭 영역 (좌/우 반반) */
+    /* ✅ labels moved to top line so they never overlap pill */
+    .labels{
+      position:absolute;
+      left: 12px;
+      right: 12px;
+      top: 8px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      pointer-events:none;
+      user-select:none;
+      -webkit-user-select:none;
+      transition: opacity .14s ease;
+    }
+    .label{
+      font-size: 13px;
+      color: rgba(255,255,255,.52);
+      letter-spacing: -.2px;
+    }
+
+    /* ✅ rule: labels only in unknown, BOTH hidden in dont/know */
+    .track.is-unknown .labels{ opacity: 1; }
+    .track.is-dont .labels,
+    .track.is-know .labels{ opacity: 0; }
+
+    /* meaning slots (appear only when snapped to dont/know) */
+    .meaning-slot{
+      position:absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 46%;
+      padding: 0 12px;
+      pointer-events:none;
+      opacity: 0;
+      transition: opacity .16s ease, transform .18s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 14px;
+      color: rgba(255,255,255,.78);
+    }
+
+    .meaning-left{
+      left: 10px;
+      text-align:left;
+      transform: translateY(-50%) translateX(-6px);
+    }
+    .meaning-right{
+      right: 10px;
+      text-align:right;
+      transform: translateY(-50%) translateX(6px);
+    }
+
+    /* show meaning based on snapped state */
+    .track.is-know .meaning-left{
+      opacity: 1;
+      transform: translateY(-50%) translateX(0px);
+    }
+    .track.is-dont .meaning-right{
+      opacity: 1;
+      transform: translateY(-50%) translateX(0px);
+    }
+
+    /* meaning font auto-step (simple, reliable) */
+    .meaning-slot.small{ font-size: 13px; }
+    .meaning-slot.smaller{ font-size: 12px; }
+
+    /* click zones (left/right half) */
     .zone{
       position:absolute;
       top:0; bottom:0;
@@ -179,12 +211,12 @@
     .zone.left{ left:0; }
     .zone.right{ right:0; }
 
-    /* Thumb/Pill */
+    /* pill contains word and moves with it */
     .pill{
       position:absolute;
       top: 50%;
       transform: translateY(-50%) translateX(0px);
-      left: 10px; /* 기준 */
+      left: 10px; /* base offset */
       height: var(--pill-h);
       width: var(--pill-w);
       border-radius: var(--pill-radius);
@@ -203,6 +235,9 @@
       will-change: transform, background, border-color;
       transition: transform .18s cubic-bezier(.2,.9,.25,1), background .14s linear, border-color .14s linear;
       z-index: 2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .pill.dragging{ transition:none !important; }
 
@@ -210,19 +245,7 @@
     .pill.dont{ background: var(--danger); border-color: rgba(255,90,90,.32); }
     .pill.know{ background: var(--ok); border-color: rgba(80,220,140,.32); }
 
-    /* Empty */
-    .empty{
-      margin-top: 18px;
-      padding: 18px;
-      border: 1px dashed rgba(255,255,255,.16);
-      border-radius: 16px;
-      color: var(--muted);
-      text-align:center;
-      line-height: 1.6;
-    }
-    .empty b{ color: var(--text); }
-
-    /* Footer CTA (깜빡임 방지: ready 전에는 숨김) */
+    /* Footer CTA (Phase 2 later) */
     .footer{
       position: fixed;
       left:0; right:0; bottom:0;
@@ -259,7 +282,7 @@
     }
     sl-button::part(base){ border-radius: 14px; }
 
-    /* Charge modal layout */
+    /* Charge modal simplified */
     .charge-msg{
       font-size: 14px;
       color: rgba(255,255,255,.86);
@@ -275,12 +298,8 @@
       display:flex;
       gap: 10px;
     }
-    .btn-row sl-button{
-      flex: 1 1 0;
-    }
-    .btn-row sl-button::part(base){
-      width: 100%;
-    }
+    .btn-row sl-button{ flex: 1 1 0; }
+    .btn-row sl-button::part(base){ width: 100%; }
   </style>
 </head>
 
@@ -293,9 +312,8 @@
   </div>
 
   <main class="app">
-    <h1>오늘의 단어</h1>
-
-    <div class="top-actions">
+    <div class="header">
+      <h1>오늘의 단어</h1>
       <sl-button id="btnCharge" variant="primary">충전하기</sl-button>
     </div>
 
@@ -309,12 +327,11 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <!-- Phase 2에서 활성화 -->
       <sl-button id="ctaSubmit" variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 2~)</sl-button>
     </div>
   </footer>
 
-  <!-- Charge dialog (단순화 완료) -->
+  <!-- Charge dialog -->
   <sl-dialog id="dlgCharge" label="충전하기">
     <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
     <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
@@ -404,24 +421,34 @@
       toast.toast();
     }
 
+    function escapeHtml(s){
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
     /* =========================
-       Track row builder
+       Track builder (final rules)
     ========================= */
     function buildTrackRow(wordObj, index, state){
       const el = document.createElement("div");
-      el.className = "track";
+      el.className = "track is-unknown";
       el.dataset.index = String(index);
 
       el.innerHTML = `
         <div class="tint left"></div>
         <div class="tint right"></div>
 
-        <div class="label left">몰라요</div>
-        <div class="label right">알아요</div>
-
-        <div class="center">
-          <div class="meaning"></div>
+        <div class="labels">
+          <div class="label">몰라요</div>
+          <div class="label">알아요</div>
         </div>
+
+        <div class="meaning-slot meaning-left"></div>
+        <div class="meaning-slot meaning-right"></div>
 
         <div class="zone left" aria-label="몰라요 영역"></div>
         <div class="zone right" aria-label="알아요 영역"></div>
@@ -432,47 +459,25 @@
       const tintL = el.querySelector(".tint.left");
       const tintR = el.querySelector(".tint.right");
       const pill  = el.querySelector(".pill");
-      const meaning = el.querySelector(".meaning");
+      const meanL = el.querySelector(".meaning-left");
+      const meanR = el.querySelector(".meaning-right");
       const zoneL = el.querySelector(".zone.left");
       const zoneR = el.querySelector(".zone.right");
 
-      // bounds
       let minX = 0, maxX = 0, curX = 0;
       let dragging = false, pid = null, startClientX = 0, startX = 0;
+
+      // ✅ 2-A: narrow unknown deadzone
+      const TH_LEFT  = 0.47; // <= dont
+      const TH_RIGHT = 0.53; // >= know
 
       function computeBounds(){
         const trackRect = el.getBoundingClientRect();
         const pillRect = pill.getBoundingClientRect();
-        const leftPad = 10;               // pill left 기준
-        const rightPad = 10;              // 우측 여백
+        const leftPad = 10;
+        const rightPad = 10;
         minX = 0;
         maxX = Math.max(0, trackRect.width - pillRect.width - leftPad - rightPad);
-      }
-
-      function statusToX(st){
-        if(st === "dont") return minX;
-        if(st === "know") return maxX;
-        return (minX + maxX) / 2;
-      }
-
-      function setPillClass(st){
-        pill.classList.remove("neutral","dont","know");
-        pill.classList.add(st === "dont" ? "dont" : st === "know" ? "know" : "neutral");
-      }
-
-      function setMeaning(on){
-        if(on){
-          meaning.textContent = wordObj.meaning || "";
-          meaning.classList.add("on");
-
-          meaning.classList.remove("small","smaller");
-          const t = meaning.textContent;
-          if(t.length >= 16) meaning.classList.add("small");
-          if(t.length >= 22) meaning.classList.add("smaller");
-        }else{
-          meaning.textContent = "";
-          meaning.classList.remove("on","small","smaller");
-        }
       }
 
       function progress(x){
@@ -491,18 +496,56 @@
       function moveTo(x, snap){
         const clamped = Math.max(minX, Math.min(maxX, x));
         curX = clamped;
-        if(snap) pill.classList.remove("dragging"); // transition on
+        if(snap) pill.classList.remove("dragging");
         pill.style.transform = `translateY(-50%) translateX(${clamped}px)`;
         applyTint(clamped);
       }
 
+      function statusToX(st){
+        if(st === "dont") return minX;
+        if(st === "know") return maxX;
+        return (minX + maxX) / 2;
+      }
+
+      function setPillClass(st){
+        pill.classList.remove("neutral","dont","know");
+        pill.classList.add(st === "dont" ? "dont" : st === "know" ? "know" : "neutral");
+      }
+
+      function setTrackClass(st){
+        el.classList.remove("is-unknown","is-dont","is-know");
+        el.classList.add(st === "dont" ? "is-dont" : st === "know" ? "is-know" : "is-unknown");
+      }
+
+      function setMeaning(st){
+        // rule: meaning only after snap to dont/know (labels hidden then)
+        meanL.textContent = "";
+        meanR.textContent = "";
+        meanL.classList.remove("small","smaller");
+        meanR.classList.remove("small","smaller");
+
+        if(st === "dont"){
+          meanR.textContent = wordObj.meaning || "";
+          applyMeaningSizing(meanR);
+        }else if(st === "know"){
+          meanL.textContent = wordObj.meaning || "";
+          applyMeaningSizing(meanL);
+        }
+      }
+
+      function applyMeaningSizing(slotEl){
+        const t = slotEl.textContent || "";
+        // simple step sizing (stable, avoids heavy measurement)
+        if(t.length >= 16) slotEl.classList.add("small");
+        if(t.length >= 22) slotEl.classList.add("smaller");
+      }
+
       function snapByX(x){
         const p = progress(x);
-        // 중앙 deadzone을 너무 넓게 잡지 않음(UX 개선)
         let st = "unknown";
-        if(p <= 0.40) st = "dont";
-        else if(p >= 0.60) st = "know";
-        applyStatus(st);
+        if(p <= TH_LEFT) st = "dont";
+        else if(p >= TH_RIGHT) st = "know";
+        return st;
       }
 
       function applyStatus(st){
@@ -511,7 +554,8 @@
         saveState(state);
 
         setPillClass(st);
-        setMeaning(st === "dont" || st === "know");
+        setTrackClass(st);
+        setMeaning(st);
         moveTo(statusToX(st), true);
       }
 
@@ -519,11 +563,12 @@
         computeBounds();
         const st = wordObj.status || "unknown";
         setPillClass(st);
-        setMeaning(st === "dont" || st === "know");
+        setTrackClass(st);
+        setMeaning(st);
         moveTo(statusToX(st), true);
       }
 
-      // pointer drag
+      // drag
       pill.addEventListener("pointerdown", (e)=>{
         dragging = true;
         pid = e.pointerId;
@@ -538,7 +583,7 @@
       pill.addEventListener("pointermove", (e)=>{
         if(!dragging || e.pointerId !== pid) return;
         const dx = e.clientX - startClientX;
-        moveTo(startX + dx, false);
+        moveTo(startX + dx, false); // ✅ tint continuous during drag
         e.preventDefault();
       });
 
@@ -546,35 +591,27 @@
         if(!dragging || e.pointerId !== pid) return;
         dragging = false;
         pill.classList.remove("dragging");
-        snapByX(curX);
+        const st = snapByX(curX);
+        applyStatus(st);
         e.preventDefault();
       }
       pill.addEventListener("pointerup", endDrag);
       pill.addEventListener("pointercancel", endDrag);
 
-      // click zones (부드럽게 이동하며 스냅)
+      // click zones: change state even after snap (required)
       zoneL.addEventListener("click", ()=> applyStatus("dont"));
       zoneR.addEventListener("click", ()=> applyStatus("know"));
 
+      // allow click center to return unknown (optional but matches "anywhere")
+      el.addEventListener("dblclick", ()=> applyStatus("unknown"));
+
       // resize safe
       window.addEventListener("resize", ()=>{
-        // 너무 자주면 부담이라 Phase 1에서는 단순 처리
         init();
       }, { passive:true });
 
-      // init after paint (정확한 width)
       requestAnimationFrame(init);
-
       return el;
-    }
-
-    function escapeHtml(s){
-      return String(s)
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
     }
 
     /* =========================
@@ -586,7 +623,6 @@
       listEl.innerHTML = "";
       const count = state.words.length;
 
-      // remaining charges
       const remain = Math.max(0, 3 - state.chargeUsed);
       remainText.textContent = `${remain}/3`;
       btnCharge.disabled = remain <= 0;
@@ -623,7 +659,6 @@
         showToast("오늘 충전은 3회까지예요.");
         return;
       }
-      // +10
       state.words = state.words.concat(makeDummyWords(10));
       state.chargeUsed += 1;
       saveState(state);
@@ -634,15 +669,10 @@
     });
 
     /* =========================
-       Boot (CTA 깜빡임 방지)
+       Boot
     ========================= */
     render();
-
-    // ✅ 첫 렌더/컴포넌트 정의 이후 footer를 표시
-    // (iOS에서 "문구만 잠깐" 튀는 현상 방지)
-    requestAnimationFrame(()=>{
-      document.documentElement.classList.add("ready");
-    });
+    requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
   </script>
 </body>
 </html>
