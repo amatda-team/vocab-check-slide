@@ -12,7 +12,12 @@
   <style>
     :root{
       --app-max: 520px;
-      --slow-ms: 1500ms; /* ✅ 여기만 바꾸면 1.5초/2초 조절 가능 */
+      
+      /* ✅ Boot motion controls (네가 여기만 조절하면 됨) */
+      --boot-hold-ms: 600ms;     /* x: 중앙에 딱 멈춰있는 시간 */
+      --boot-move-ms: 1500ms;    /* y: 이동 시간 */
+      --boot-ease: cubic-bezier(.2,.9,.25,1); /* 가속→감속 느낌 (원하면 바꿔) */
+      
       /* Theme */
       --bg0: #070a10;
       --bg1: #0b0f14;
@@ -237,7 +242,7 @@
 
       user-select:none;
       -webkit-user-select:none;
-      touch-action: none;
+      touch-action: pan-y; /* ✅ 기본은 세로 스크롤 허용 */
 
       will-change: transform, background, border-color;
       transition: transform .18s cubic-bezier(.2,.9,.25,1), background .10s linear, border-color .10s linear;
@@ -247,16 +252,20 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .pill.dragging{ transition:none !important; }
+    .pill.dragging{
+      transition:none !important;
+      touch-action: none;  /* ✅ “가로 드래그”로 판정된 순간부터만 스크롤 차단 */
+    }
 
     /* ✅ (4) 초기 로딩 연출용: 중앙 배치 강제 + 저장상태로 '슥~' 이동 */
     .pill.booting{ transition: none !important; }
     .pill.slow{
-  transition:
-    transform var(--slow-ms) cubic-bezier(.2,.9,.25,1),
-    background .10s linear,
-    border-color .10s linear !important;
-}
+      transition:
+        transform var(--boot-move-ms) var(--boot-ease),
+        background .10s linear,
+        border-color .10s linear !important;
+    }
+
 
 
     /* Footer CTA */
@@ -356,458 +365,519 @@
     </div>
   </sl-dialog>
 
-  <script>
-    /* =========================
-       Storage / State
-    ========================= */
-    const LS_KEY = "vocab_slide_v0";
-    const todayKey = (() => {
-      const d = new Date();
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,"0");
-      const day = String(d.getDate()).padStart(2,"0");
-      return `${y}-${m}-${day}`;
-    })();
+ <script>
+  /* =========================
+     Storage / State
+  ========================= */
+  const LS_KEY = "vocab_slide_v0";
+  const todayKey = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
 
-    function loadState(){
-      try{
-        const raw = localStorage.getItem(LS_KEY);
-        if(!raw) return { day: todayKey, chargeUsed: 0, words: [] };
-        const s = JSON.parse(raw);
-        if(s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
-        return {
-          day: s.day || todayKey,
-          chargeUsed: Number(s.chargeUsed || 0),
-          words: Array.isArray(s.words) ? s.words : []
-        };
-      }catch(e){
-        return { day: todayKey, chargeUsed: 0, words: [] };
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+      const s = JSON.parse(raw);
+      if (s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
+      return {
+        day: s.day || todayKey,
+        chargeUsed: Number(s.chargeUsed || 0),
+        words: Array.isArray(s.words) ? s.words : []
+      };
+    } catch (e) {
+      return { day: todayKey, chargeUsed: 0, words: [] };
+    }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  function makeDummyWords(n) {
+    const pool = [
+      ["abandon", "버리다, 포기하다"],
+      ["accurate", "정확한"],
+      ["benevolent", "자비로운, 선의의"],
+      ["consequence", "결과, 영향"],
+      ["diligent", "성실한"],
+      ["elaborate", "정교한, 상세히 설명하다"],
+      ["friction", "마찰, 충돌"],
+      ["gratitude", "감사"],
+      ["hesitate", "망설이다"],
+      ["inevitable", "피할 수 없는"]
+    ];
+    const out = [];
+    const base = Date.now().toString(36);
+    for (let i = 0; i < n; i++) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      out.push({
+        id: `${base}-${i}-${Math.random().toString(16).slice(2, 8)}`,
+        word: pick[0],
+        meaning: pick[1],
+        status: "unknown" // unknown | dont | know
+      });
+    }
+    return out;
+  }
+
+  /* =========================
+     UI refs
+  ========================= */
+  const toast = document.getElementById("toast");
+  const toastText = document.getElementById("toastText");
+
+  const btnCharge = document.getElementById("btnCharge");
+  const dlgCharge = document.getElementById("dlgCharge");
+  const dlgChargeDo = document.getElementById("dlgChargeDo");
+  const dlgChargeClose = document.getElementById("dlgChargeClose");
+  const remainText = document.getElementById("remainText");
+
+  const listEl = document.getElementById("list");
+  const emptyState = document.getElementById("emptyState");
+
+  function showToast(msg) {
+    toastText.textContent = msg;
+    toast.toast();
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  /* =========================
+     Helpers: color lerp
+  ========================= */
+  const COL_NEUTRAL_BG = [230, 235, 245, 0.22];
+  const COL_DANGER_BG = [255, 90, 90, 0.30];
+  const COL_OK_BG = [80, 220, 140, 0.30];
+
+  const COL_NEUTRAL_BD = [255, 255, 255, 0.14];
+  const COL_DANGER_BD = [255, 90, 90, 0.32];
+  const COL_OK_BD = [80, 220, 140, 0.32];
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+  function smoothstep(t) {
+    t = clamp01(t);
+    return t * t * (3 - 2 * t);
+  }
+  function mixRGBA(c1, c2, t) {
+    return [
+      Math.round(lerp(c1[0], c2[0], t)),
+      Math.round(lerp(c1[1], c2[1], t)),
+      Math.round(lerp(c1[2], c2[2], t)),
+      lerp(c1[3], c2[3], t)
+    ];
+  }
+  function rgbaStr(c) {
+    return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
+  }
+
+  /* =========================
+     CSS var helpers (ms)
+  ========================= */
+  function parseMs(str, fallback) {
+    const s = String(str || "").trim();
+    if (!s) return fallback;
+    if (s.endsWith("ms")) return parseFloat(s);
+    if (s.endsWith("s")) return parseFloat(s) * 1000;
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  function getVarMs(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return parseMs(v, fallback);
+  }
+
+  /* =========================
+     Track builder
+  ========================= */
+  function buildTrackRow(wordObj, index, state) {
+    const el = document.createElement("div");
+    el.className = "track is-unknown";
+    el.dataset.index = String(index);
+
+    el.innerHTML = `
+      <div class="tint left"></div>
+      <div class="tint right"></div>
+
+      <div class="labels">
+        <div class="label">몰라요</div>
+        <div class="label">알아요</div>
+      </div>
+
+      <div class="meaning-slot meaning-left"></div>
+      <div class="meaning-slot meaning-right"></div>
+
+      <div class="zone left" aria-label="몰라요 영역"></div>
+      <div class="zone center" aria-label="가운데(미선택) 영역"></div>
+      <div class="zone right" aria-label="알아요 영역"></div>
+
+      <div class="pill">${escapeHtml(wordObj.word)}</div>
+    `;
+
+    const tintL = el.querySelector(".tint.left");
+    const tintR = el.querySelector(".tint.right");
+    const pill = el.querySelector(".pill");
+    const meanL = el.querySelector(".meaning-left");
+    const meanR = el.querySelector(".meaning-right");
+    const labels = el.querySelector(".labels");
+    const zoneL = el.querySelector(".zone.left");
+    const zoneC = el.querySelector(".zone.center");
+    const zoneR = el.querySelector(".zone.right");
+
+    // meaning text always set (opacity handles visibility)
+    meanL.textContent = wordObj.meaning || "";
+    meanR.textContent = wordObj.meaning || "";
+    applyMeaningSizing(meanL);
+    applyMeaningSizing(meanR);
+
+    let minX = 0, maxX = 0, curX = 0;
+
+    // ✅ 중앙 영역 더 넓힘
+    const TH_LEFT = 0.40;
+    const TH_RIGHT = 0.60;
+
+    // ✅ 드래그 시작 시점 상태(unknown에서 드래그할 때만 라벨 연속 페이드)
+    let dragOriginStatus = "unknown";
+
+    // ✅ 세로 스크롤 의도 판별
+    let pending = false;
+    let intent = null; // "drag" | "scroll" | null
+    let pid = null;
+
+    let downX = 0, downY = 0;
+    let startClientX = 0, startX = 0;
+    const INTENT_PX = 8;
+
+    function meaningOpacityRight(p) {
+      if (p >= TH_LEFT) return 0;
+      const t = (TH_LEFT - p) / TH_LEFT;
+      return smoothstep(t);
+    }
+    function meaningOpacityLeft(p) {
+      if (p <= TH_RIGHT) return 0;
+      const t = (p - TH_RIGHT) / (1 - TH_RIGHT);
+      return smoothstep(t);
+    }
+
+    function computeBounds() {
+      const trackRect = el.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      const leftPad = 10;
+      const rightPad = 10;
+      minX = 0;
+      maxX = Math.max(0, trackRect.width - pillRect.width - leftPad - rightPad);
+    }
+
+    function progress(x) {
+      if (maxX === minX) return 0.5;
+      return (x - minX) / (maxX - minX);
+    }
+
+    function applyTintAndPillAndMeaning(x) {
+      const p = progress(x);
+
+      // tint continuous
+      const leftStr = Math.max(0, (0.5 - p) / 0.5);
+      const rightStr = Math.max(0, (p - 0.5) / 0.5);
+      tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
+      tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
+
+      // pill color continuous (danger <-> neutral <-> ok)
+      let bg, bd;
+      if (p <= 0.5) {
+        const t = p / 0.5;
+        bg = mixRGBA(COL_DANGER_BG, COL_NEUTRAL_BG, t);
+        bd = mixRGBA(COL_DANGER_BD, COL_NEUTRAL_BD, t);
+      } else {
+        const t = (p - 0.5) / 0.5;
+        bg = mixRGBA(COL_NEUTRAL_BG, COL_OK_BG, t);
+        bd = mixRGBA(COL_NEUTRAL_BD, COL_OK_BD, t);
+      }
+      pill.style.background = rgbaStr(bg);
+      pill.style.borderColor = rgbaStr(bd);
+
+      // meaning opacity continuous
+      const opR = meaningOpacityRight(p);
+      const opL = meaningOpacityLeft(p);
+      meanR.style.opacity = String(opR);
+      meanL.style.opacity = String(opL);
+
+      // micro motion
+      meanR.style.transform = `translateY(-50%) translateX(${Math.round(6 * (1 - opR))}px)`;
+      meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6 * (1 - opL))}px)`;
+
+      // unknown에서 drag 중 라벨도 연속 변화 (겹침 방지)
+      if (intent === "drag" && dragOriginStatus === "unknown") {
+        const labelOp = clamp01(1 - Math.max(opR, opL));
+        labels.style.opacity = String(labelOp);
+      } else {
+        labels.style.opacity = "";
       }
     }
-    function saveState(state){
-      localStorage.setItem(LS_KEY, JSON.stringify(state));
+
+    function moveTo(x, snap) {
+      const clamped = Math.max(minX, Math.min(maxX, x));
+      curX = clamped;
+      if (snap) pill.classList.remove("dragging");
+      pill.style.transform = `translateY(-50%) translateX(${clamped}px)`;
+      applyTintAndPillAndMeaning(clamped);
     }
 
-    function makeDummyWords(n){
-      const pool = [
-        ["abandon", "버리다, 포기하다"],
-        ["accurate", "정확한"],
-        ["benevolent", "자비로운, 선의의"],
-        ["consequence", "결과, 영향"],
-        ["diligent", "성실한"],
-        ["elaborate", "정교한, 상세히 설명하다"],
-        ["friction", "마찰, 충돌"],
-        ["gratitude", "감사"],
-        ["hesitate", "망설이다"],
-        ["inevitable", "피할 수 없는"],
-      ];
-      const out = [];
-      const base = Date.now().toString(36);
-      for(let i=0;i<n;i++){
-        const pick = pool[Math.floor(Math.random()*pool.length)];
-        out.push({
-          id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
-          word: pick[0],
-          meaning: pick[1],
-          status: "unknown" // unknown | dont | know
-        });
-      }
-      return out;
+    function statusToX(st) {
+      if (st === "dont") return minX;
+      if (st === "know") return maxX;
+      return (minX + maxX) / 2;
     }
 
-    /* =========================
-       UI refs
-    ========================= */
-    const toast = document.getElementById("toast");
-    const toastText = document.getElementById("toastText");
-
-    const btnCharge = document.getElementById("btnCharge");
-    const dlgCharge = document.getElementById("dlgCharge");
-    const dlgChargeDo = document.getElementById("dlgChargeDo");
-    const dlgChargeClose = document.getElementById("dlgChargeClose");
-    const remainText = document.getElementById("remainText");
-
-    const listEl = document.getElementById("list");
-    const emptyState = document.getElementById("emptyState");
-
-    function showToast(msg){
-      toastText.textContent = msg;
-      toast.toast();
+    function setTrackClass(st) {
+      el.classList.remove("is-unknown", "is-dont", "is-know");
+      el.classList.add(st === "dont" ? "is-dont" : st === "know" ? "is-know" : "is-unknown");
     }
 
-    function escapeHtml(s){
-      return String(s)
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
+    function snapByX(x) {
+      const p = progress(x);
+      if (p <= TH_LEFT) return "dont";
+      if (p >= TH_RIGHT) return "know";
+      return "unknown";
     }
 
-    /* =========================
-       Helpers: color lerp
-    ========================= */
-    const COL_NEUTRAL_BG = [230,235,245, 0.22];
-    const COL_DANGER_BG  = [255, 90, 90, 0.30];
-    const COL_OK_BG      = [ 80,220,140, 0.30];
+    function applyStatus(st, opts) {
+      const save = !(opts && opts.save === false);
 
-    const COL_NEUTRAL_BD = [255,255,255, 0.14];
-    const COL_DANGER_BD  = [255, 90, 90, 0.32];
-    const COL_OK_BD      = [ 80,220,140, 0.32];
+      if (save) {
+        wordObj.status = st;
+        state.words[index].status = st;
+        saveState(state);
+      } else {
+        wordObj.status = st;
+      }
 
-    function lerp(a,b,t){ return a + (b-a)*t; }
-    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-    function smoothstep(t){
-      t = clamp01(t);
-      return t*t*(3 - 2*t);
-    }
-    function mixRGBA(c1, c2, t){
-      return [
-        Math.round(lerp(c1[0], c2[0], t)),
-        Math.round(lerp(c1[1], c2[1], t)),
-        Math.round(lerp(c1[2], c2[2], t)),
-        lerp(c1[3], c2[3], t)
-      ];
-    }
-    function rgbaStr(c){
-      return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
+      setTrackClass(st);
+      moveTo(statusToX(st), true);
     }
 
-    /* =========================
-       Track builder
-    ========================= */
-    function buildTrackRow(wordObj, index, state){
-      const el = document.createElement("div");
-      el.className = "track is-unknown";
-      el.dataset.index = String(index);
+    function applyMeaningSizing(slotEl) {
+      const t = slotEl.textContent || "";
+      slotEl.classList.remove("small", "smaller");
+      if (t.length >= 16) slotEl.classList.add("small");
+      if (t.length >= 22) slotEl.classList.add("smaller");
+    }
 
-      el.innerHTML = `
-        <div class="tint left"></div>
-        <div class="tint right"></div>
+    /* ===== init (boot + resize-safe) ===== */
+    let lastW = 0;
 
-        <div class="labels">
-          <div class="label">몰라요</div>
-          <div class="label">알아요</div>
-        </div>
+    function init(mode) {
+      computeBounds();
 
-        <div class="meaning-slot meaning-left"></div>
-        <div class="meaning-slot meaning-right"></div>
+      const trackW = el.getBoundingClientRect().width;
+      const widthChanged = Math.abs(trackW - lastW) > 2;
+      lastW = trackW;
 
-        <div class="zone left" aria-label="몰라요 영역"></div>
-        <div class="zone center" aria-label="가운데(미선택) 영역"></div>
-        <div class="zone right" aria-label="알아요 영역"></div>
+      const st = wordObj.status || "unknown";
 
-        <div class="pill">${escapeHtml(wordObj.word)}</div>
-      `;
+      if (mode === "resize" && !widthChanged) return;
 
-      const tintL = el.querySelector(".tint.left");
-      const tintR = el.querySelector(".tint.right");
-      const pill  = el.querySelector(".pill");
-      const meanL = el.querySelector(".meaning-left");
-      const meanR = el.querySelector(".meaning-right");
-      const labels = el.querySelector(".labels");
-      const zoneL = el.querySelector(".zone.left");
-      const zoneC = el.querySelector(".zone.center");
-      const zoneR = el.querySelector(".zone.right");
-
-      // meaning text always set (opacity handles visibility)
-      meanL.textContent = wordObj.meaning || "";
-      meanR.textContent = wordObj.meaning || "";
-      applyMeaningSizing(meanL);
-      applyMeaningSizing(meanR);
-
-      let minX = 0, maxX = 0, curX = 0;
-      let dragging = false, pid = null, startClientX = 0, startX = 0;
-
-      // ✅ (3) 중앙 영역 더 넓힘
-      // p <= TH_LEFT => dont, p >= TH_RIGHT => know, else unknown
-      const TH_LEFT  = 0.40;
-      const TH_RIGHT = 0.60;
-
-      // ✅ 드래그 시작 시점 상태(unknown에서 드래그할 때만 라벨 연속 페이드)
-      let dragOriginStatus = "unknown";
-
-      function meaningOpacityRight(p){ // for dont-side meaning (right slot)
-        if(p >= TH_LEFT) return 0;
-        const t = (TH_LEFT - p) / TH_LEFT; // 1 at p=0, 0 at p=TH_LEFT
-        return smoothstep(t);
-      }
-      function meaningOpacityLeft(p){ // for know-side meaning (left slot)
-        if(p <= TH_RIGHT) return 0;
-        const t = (p - TH_RIGHT) / (1 - TH_RIGHT); // 0 at TH_RIGHT, 1 at 1
-        return smoothstep(t);
-      }
-
-      function computeBounds(){
-        const trackRect = el.getBoundingClientRect();
-        const pillRect = pill.getBoundingClientRect();
-        const leftPad = 10;
-        const rightPad = 10;
-        minX = 0;
-        maxX = Math.max(0, trackRect.width - pillRect.width - leftPad - rightPad);
-      }
-
-      function progress(x){
-        if(maxX === minX) return 0.5;
-        return (x - minX) / (maxX - minX);
-      }
-
-      function applyTintAndPillAndMeaning(x){
-        const p = progress(x);
-
-        // tint continuous
-        const leftStr = Math.max(0, (0.5 - p) / 0.5);
-        const rightStr = Math.max(0, (p - 0.5) / 0.5);
-        tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
-        tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
-
-        // pill color continuous (danger <-> neutral <-> ok)
-        let bg, bd;
-        if(p <= 0.5){
-          const t = p / 0.5; // 0..1
-          bg = mixRGBA(COL_DANGER_BG, COL_NEUTRAL_BG, t);
-          bd = mixRGBA(COL_DANGER_BD, COL_NEUTRAL_BD, t);
-        }else{
-          const t = (p - 0.5) / 0.5; // 0..1
-          bg = mixRGBA(COL_NEUTRAL_BG, COL_OK_BG, t);
-          bd = mixRGBA(COL_NEUTRAL_BD, COL_OK_BD, t);
-        }
-        pill.style.background = rgbaStr(bg);
-        pill.style.borderColor = rgbaStr(bd);
-
-        // meaning opacity continuous
-        const opR = meaningOpacityRight(p);
-        const opL = meaningOpacityLeft(p);
-        meanR.style.opacity = String(opR);
-        meanL.style.opacity = String(opL);
-
-        // micro motion
-        meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
-        meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
-
-        // ✅ (2) unknown에서 드래그 중 라벨도 연속 변화
-        // - 원칙: 라벨/meaning 겹침 방지
-        // - unknown에서 드래그 시작한 경우에만 라벨을 점점 사라지게
-        // - 라벨 opacity = 1 - max(meaningOpacity)  (meaning이 올라올수록 라벨은 내려감)
-        if(dragging && dragOriginStatus === "unknown"){
-          const labelOp = clamp01(1 - Math.max(opR, opL));
-          labels.style.opacity = String(labelOp);
-        }else{
-          // 드래그 중이라도 origin이 unknown이 아니면(확정 상태에서 시작) 라벨은 계속 숨김 유지가 자연스럽다.
-          // (CSS 클래스 규칙에 맡김)
-          labels.style.opacity = "";
-        }
-      }
-
-      function moveTo(x, snap){
-        const clamped = Math.max(minX, Math.min(maxX, x));
-        curX = clamped;
-        if(snap) pill.classList.remove("dragging");
-        pill.style.transform = `translateY(-50%) translateX(${clamped}px)`;
-        applyTintAndPillAndMeaning(clamped);
-      }
-
-      function statusToX(st){
-        if(st === "dont") return minX;
-        if(st === "know") return maxX;
-        return (minX + maxX) / 2;
-      }
-
-      function setTrackClass(st){
-        el.classList.remove("is-unknown","is-dont","is-know");
-        el.classList.add(st === "dont" ? "is-dont" : st === "know" ? "is-know" : "is-unknown");
-      }
-
-      function snapByX(x){
-        const p = progress(x);
-        if(p <= TH_LEFT) return "dont";
-        if(p >= TH_RIGHT) return "know";
-        return "unknown";
-      }
-
-      function applyStatus(st, opts){
-        const save = !(opts && opts.save === false);
-
-        if(save){
-          wordObj.status = st;
-          state.words[index].status = st;
-          saveState(state);
-        }else{
-          wordObj.status = st;
-        }
-
+      if (mode === "resize") {
+        pill.classList.add("booting");
         setTrackClass(st);
         moveTo(statusToX(st), true);
+        requestAnimationFrame(() => pill.classList.remove("booting"));
+        return;
       }
 
-      function applyMeaningSizing(slotEl){
-        const t = slotEl.textContent || "";
-        slotEl.classList.remove("small","smaller");
-        if(t.length >= 16) slotEl.classList.add("small");
-        if(t.length >= 22) slotEl.classList.add("smaller");
-      }
+      // ✅ boot: 중앙 고정 → hold → ease 이동
+      const holdMs = getVarMs("--boot-hold-ms", 600);
+      const moveMs = getVarMs("--boot-move-ms", 1500);
 
-      let lastW = 0;
-      
-      function init(mode){
-        computeBounds();
-      
-        const trackW = el.getBoundingClientRect().width;
-        const widthChanged = Math.abs(trackW - lastW) > 2; // ✅ width가 의미 있게 바뀔 때만
-        lastW = trackW;
-      
-        const st = wordObj.status || "unknown";
-      
-        // ✅ resize로 들어왔는데 width 변화가 없으면 아무것도 안 함 (스크롤 resize 방지 핵심)
-        if(mode === "resize" && !widthChanged){
-          return;
-        }
-      
-        if(mode === "resize"){
-          // ✅ 리사이즈는 '연출' 금지: 현재 상태 위치만 조용히 맞춤
-          pill.classList.add("booting");     // transition off
-          setTrackClass(st);
-          moveTo(statusToX(st), true);
-          requestAnimationFrame(()=> pill.classList.remove("booting"));
-          return;
-        }
-      
-        // ====== boot(최초 로드)만 연출 ======
-        pill.classList.add("booting");
-        setTrackClass("unknown");
-        moveTo(statusToX("unknown"), true);
-      
-        requestAnimationFrame(()=>{
-          pill.classList.remove("booting");
-          if(st !== "unknown"){
+      pill.classList.add("booting");
+      setTrackClass("unknown");
+      moveTo(statusToX("unknown"), true);
+
+      requestAnimationFrame(() => {
+        pill.classList.remove("booting");
+
+        if (st !== "unknown") {
+          setTimeout(() => {
             setTrackClass(st);
             pill.classList.add("slow");
             moveTo(statusToX(st), true);
-            // ✅ CSS 변수 시간에 맞춰 제거 (1500ms면 1600쯤)
-            const slowMs = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--slow-ms")) || 1500;
-            setTimeout(()=> pill.classList.remove("slow"), slowMs + 120);
-          }else{
-            setTrackClass("unknown");
-            moveTo(statusToX("unknown"), true);
-          }
-        });
-      }
-
-
-      // drag
-      pill.addEventListener("pointerdown", (e)=>{
-        dragging = true;
-        pid = e.pointerId;
-        dragOriginStatus = (wordObj.status || "unknown");
-
-        pill.setPointerCapture(pid);
-        pill.classList.add("dragging");
-        computeBounds();
-        startClientX = e.clientX;
-        startX = curX;
-        e.preventDefault();
-      });
-
-      pill.addEventListener("pointermove", (e)=>{
-        if(!dragging || e.pointerId !== pid) return;
-        const dx = e.clientX - startClientX;
-        moveTo(startX + dx, false);
-        e.preventDefault();
-      });
-
-      function endDrag(e){
-        if(!dragging || e.pointerId !== pid) return;
-        dragging = false;
-        pill.classList.remove("dragging");
-
-        // 드래그 중 inline opacity를 건드렸을 수 있으니 정리
-        labels.style.opacity = "";
-
-        const st = snapByX(curX);
-        applyStatus(st);
-        e.preventDefault();
-      }
-      pill.addEventListener("pointerup", endDrag);
-      pill.addEventListener("pointercancel", endDrag);
-
-      // click zones: left/right snap + center returns unknown
-      zoneL.addEventListener("click", ()=> applyStatus("dont"));
-      zoneR.addEventListener("click", ()=> applyStatus("know"));
-      zoneC.addEventListener("click", ()=> applyStatus("unknown"));
-
-      // resize safe
-      // ✅ 최초 로드: boot 연출
-        requestAnimationFrame(()=> init("boot"));
-        
-        // ✅ 리사이즈: width 변화 있을 때만 조용히 보정
-        let resizeT = null;
-        window.addEventListener("resize", ()=>{
-          clearTimeout(resizeT);
-          resizeT = setTimeout(()=> init("resize"), 80);
-        }, { passive:true });
-
-      return el;
-    }
-
-    /* =========================
-       Render
-    ========================= */
-    let state = loadState();
-
-    function render(){
-      listEl.innerHTML = "";
-      const count = state.words.length;
-
-      const remain = Math.max(0, 3 - state.chargeUsed);
-      remainText.textContent = `${remain}/3`;
-      btnCharge.disabled = remain <= 0;
-
-      if(count === 0){
-        emptyState.style.display = "block";
-        return;
-      }
-      emptyState.style.display = "none";
-
-      state.words.forEach((w, idx)=>{
-        listEl.appendChild(buildTrackRow(w, idx, state));
+            setTimeout(() => pill.classList.remove("slow"), moveMs + 120);
+          }, holdMs);
+        } else {
+          setTrackClass("unknown");
+          moveTo(statusToX("unknown"), true);
+        }
       });
     }
 
+    // ✅ 최초 로드: boot 연출
+    requestAnimationFrame(() => init("boot"));
+
+    // ✅ 리사이즈: width 변화 있을 때만 조용히 보정
+    let resizeT = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(() => init("resize"), 80);
+    }, { passive: true });
+
     /* =========================
-       Charge modal
+       Drag (intent-based)
     ========================= */
-    btnCharge.addEventListener("click", ()=>{
-      state = loadState();
-      const remain = Math.max(0, 3 - state.chargeUsed);
-      remainText.textContent = `${remain}/3`;
-      dlgChargeDo.disabled = remain <= 0;
-      dlgCharge.show();
+    pill.addEventListener("pointerdown", (e) => {
+      pending = true;
+      intent = null;
+      pid = e.pointerId;
+
+      dragOriginStatus = (wordObj.status || "unknown");
+
+      computeBounds();
+      downX = e.clientX;
+      downY = e.clientY;
+
+      startClientX = e.clientX;
+      startX = curX;
+      // ✅ 여기서는 preventDefault 하지 않음 (세로 스크롤 우선)
     });
 
-    dlgChargeClose.addEventListener("click", ()=> dlgCharge.hide());
+    pill.addEventListener("pointermove", (e) => {
+      if (!pending || e.pointerId !== pid) return;
 
-    dlgChargeDo.addEventListener("click", ()=>{
-      state = loadState();
-      const remain = 3 - state.chargeUsed;
-      if(remain <= 0){
-        dlgCharge.hide();
-        showToast("오늘 충전은 3회까지예요.");
+      const dx0 = e.clientX - downX;
+      const dy0 = e.clientY - downY;
+
+      if (!intent) {
+        const adx = Math.abs(dx0);
+        const ady = Math.abs(dy0);
+
+        if (adx > INTENT_PX && adx > ady) {
+          intent = "drag";
+          pill.setPointerCapture(pid);
+          pill.classList.add("dragging");
+          startClientX = e.clientX;
+          startX = curX;
+        } else if (ady > INTENT_PX && ady > adx) {
+          intent = "scroll";
+          pending = false;
+          return;
+        } else {
+          return;
+        }
+      }
+
+      if (intent !== "drag") return;
+
+      const dx = e.clientX - startClientX;
+      moveTo(startX + dx, false);
+
+      e.preventDefault();
+    });
+
+    function endDrag(e) {
+      if (e.pointerId !== pid) return;
+
+      if (intent !== "drag") {
+        pending = false;
+        intent = null;
         return;
       }
-      state.words = state.words.concat(makeDummyWords(10));
-      state.chargeUsed += 1;
-      saveState(state);
+
+      pending = false;
+      pill.classList.remove("dragging");
+
+      // 드래그 중 inline opacity 정리
+      labels.style.opacity = "";
+
+      const st = snapByX(curX);
+      applyStatus(st);
+
+      intent = null;
+      e.preventDefault();
+    }
+
+    pill.addEventListener("pointerup", endDrag);
+    pill.addEventListener("pointercancel", endDrag);
+
+    // click zones: left/right snap + center returns unknown
+    zoneL.addEventListener("click", () => applyStatus("dont"));
+    zoneR.addEventListener("click", () => applyStatus("know"));
+    zoneC.addEventListener("click", () => applyStatus("unknown"));
+
+    return el;
+  }
+
+  /* =========================
+     Render
+  ========================= */
+  let state = loadState();
+
+  function render() {
+    listEl.innerHTML = "";
+    const count = state.words.length;
+
+    const remain = Math.max(0, 3 - state.chargeUsed);
+    remainText.textContent = `${remain}/3`;
+    btnCharge.disabled = remain <= 0;
+
+    if (count === 0) {
+      emptyState.style.display = "block";
+      return;
+    }
+    emptyState.style.display = "none";
+
+    state.words.forEach((w, idx) => {
+      listEl.appendChild(buildTrackRow(w, idx, state));
+    });
+  }
+
+  /* =========================
+     Charge modal
+  ========================= */
+  btnCharge.addEventListener("click", () => {
+    state = loadState();
+    const remain = Math.max(0, 3 - state.chargeUsed);
+    remainText.textContent = `${remain}/3`;
+    dlgChargeDo.disabled = remain <= 0;
+    dlgCharge.show();
+  });
+
+  dlgChargeClose.addEventListener("click", () => dlgCharge.hide());
+
+  dlgChargeDo.addEventListener("click", () => {
+    state = loadState();
+    const remain = 3 - state.chargeUsed;
+    if (remain <= 0) {
       dlgCharge.hide();
+      showToast("오늘 충전은 3회까지예요.");
+      return;
+    }
+    state.words = state.words.concat(makeDummyWords(10));
+    state.chargeUsed += 1;
+    saveState(state);
+    dlgCharge.hide();
 
-      render();
-      showToast(`충전 완료! +10개 (남은 ${Math.max(0,3-state.chargeUsed)}/3)`);
-    });
-
-    /* =========================
-       Boot
-    ========================= */
     render();
-    requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
-  </script>
+    showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
+  });
+
+  /* =========================
+     Boot
+  ========================= */
+  render();
+  requestAnimationFrame(() => document.documentElement.classList.add("ready"));
+</script>
+ 
+  
 </body>
 </html>
