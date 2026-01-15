@@ -3,133 +3,904 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <title>Vocab Check</title>
+  <title>Vocab Check - 오늘의 단어</title>
 
   <!-- Shoelace -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/themes/light.css" />
   <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/shoelace.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f7f7f7;
-      display: flex;
+    :root{
+      --maxw: 520px;
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --line: rgba(0,0,0,.08);
+      --muted: rgba(0,0,0,.45);
+      --muted2: rgba(0,0,0,.32);
+      --shadow: 0 10px 30px rgba(0,0,0,.06);
+      --radius: 18px;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+      color:#111;
+    }
+    .wrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 18px 14px 28px;
+    }
+
+    header{
+      padding: 10px 0 14px;
+    }
+    .title{
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .sub{
+      margin:0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 10px 0 10px;
+      background: linear-gradient(to bottom, rgba(246,247,249,.98), rgba(246,247,249,.75), rgba(246,247,249,0));
+      backdrop-filter: blur(6px);
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .actions .left{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .pill{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 10px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.05);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height: 40px;
+    }
+    .count{
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .limit{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .panel{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-top: 12px;
+    }
+    .panel-head{
+      display:flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .panel-head h2{
+      margin:0;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .panel-head .mini{
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Track row */
+    .rows{ display:flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .row{
+      position: relative;
+      border-radius: 16px;
+      background: rgba(0,0,0,.035);
+      border: 1px solid rgba(0,0,0,.06);
+      padding: 12px 12px;
+      overflow: hidden;
+      min-height: 62px;
+    }
+
+    .track{
+      position: relative;
+      height: 38px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.04);
+      border: 1px solid rgba(0,0,0,.06);
+      overflow: hidden;
+      display:flex;
+      align-items:center;
       justify-content: center;
     }
 
-    .app {
-      width: 100%;
-      max-width: 520px;
-      padding: 16px;
+    .zone{
+      position:absolute;
+      top:0; bottom:0;
+      width: 32%;
+      display:flex;
+      align-items:center;
+      padding: 0 12px;
+      user-select:none;
+      color: var(--muted2);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: -0.01em;
+      transition: transform .18s ease, opacity .18s ease, color .18s ease;
+      pointer-events: auto;
     }
+    .zone.left{ left:0; justify-content: flex-start; }
+    .zone.right{ right:0; justify-content: flex-end; }
 
-    h1 {
-      font-size: 20px;
-      margin-bottom: 12px;
-    }
-
-    .track {
+    .centerText{
       position: relative;
-      background: #eaeaea;
-      border-radius: 14px;
-      height: 64px;
-      margin-bottom: 12px;
+      z-index: 1;
+      user-select:none;
+      max-width: 64%;
+      text-align:center;
+      padding: 0 46px; /* room for thumb */
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
       overflow: hidden;
-      display: flex;
+      text-overflow: ellipsis;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .centerText.meaning{
+      font-weight: 700;
+      color: rgba(0,0,0,.78);
+    }
+
+    .thumb{
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      left: 50%;
+      height: 30px;
+      border-radius: 999px;
+      padding: 0 14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      box-shadow: 0 10px 22px rgba(0,0,0,.10);
+      border: 1px solid rgba(0,0,0,.10);
+      cursor: grab;
+      user-select:none;
+      will-change: left, background, color, transform;
+      transition: left .18s ease, background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+      z-index: 2;
+      background: rgba(0,0,0,.08);
+      color: rgba(0,0,0,.85);
+    }
+    .thumb:active{ cursor: grabbing; }
+
+    .row .meta{
+      margin-top: 8px;
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .meta .state{
+      font-weight: 700;
+      color: rgba(0,0,0,.55);
+    }
+
+    .footerActions{
+      display:flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    /* Top toast anchor */
+    .toastHost{
+      position: sticky;
+      top: 8px;
+      z-index: 200;
+    }
+
+    /* "Updating" overlay */
+    .overlay{
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: none;
       align-items: center;
       justify-content: center;
+      background: rgba(255,255,255,.55);
+      backdrop-filter: blur(8px);
     }
-
-    .label {
-      position: absolute;
-      font-size: 12px;
-      opacity: 0.4;
-      transition: all 0.2s ease;
+    .overlay.show{ display:flex; }
+    .overlayCard{
+      width: min(420px, calc(100vw - 28px));
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 18px;
+      padding: 18px 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.12);
+      text-align:center;
     }
-
-    .label.left { left: 12px; }
-    .label.right { right: 12px; }
-
-    .pill {
-      position: absolute;
-      background: #ddd;
-      border-radius: 999px;
-      padding: 10px 18px;
-      cursor: grab;
-      transition: background 0.2s ease, transform 0.2s ease;
-      user-select: none;
-      font-weight: 600;
+    .overlayTitle{
+      margin: 0 0 6px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      font-size: 16px;
     }
-
-    .meaning {
+    .overlaySub{
+      margin:0 0 10px;
+      color: var(--muted);
       font-size: 13px;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      pointer-events: none;
     }
 
-    .track.know .pill { background: #c9f2d6; }
-    .track.know .label.right { opacity: 1; color: #2a8f4d; }
-    .track.know .label.left { opacity: 0.2; }
+    .hint{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
 
-    .track.dontknow .pill { background: #f5c2c2; }
-    .track.dontknow .label.left { opacity: 1; color: #b3261e; }
-    .track.dontknow .label.right { opacity: 0.2; }
-
-    .track.show-meaning .meaning {
-      opacity: 1;
+    /* Small screen: keep everything tight */
+    @media (max-width: 420px){
+      .wrap{ padding: 16px 12px 24px; }
+      .centerText{ padding: 0 42px; }
     }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <h1>오늘의 단어</h1>
+  <div class="toastHost" id="toastHost"></div>
 
-    <div id="list"></div>
+  <div class="wrap">
+    <header>
+      <div class="title">오늘의 단어</div>
+      <p class="sub">
+        단어 필을 좌/우로 밀어서 선택해줘. 고정되면 뜻이 보여.
+        <br/>처음엔 비어있으니 <b>충전하기</b>로 시작!
+      </p>
+    </header>
 
-    <sl-button variant="primary" style="width:100%; margin-top:12px;">
-      완료
-    </sl-button>
+    <div class="topbar">
+      <div class="actions">
+        <div class="left">
+          <div class="pill">
+            <span class="count" id="todayCount">0개</span>
+            <span class="limit" id="chargeLeft">오늘 남은 충전 3/3</span>
+          </div>
+        </div>
+        <div class="right" style="display:flex; gap:10px; align-items:center;">
+          <sl-button id="btnCharge" variant="default">충전하기</sl-button>
+        </div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>단어 목록</h2>
+        <div class="mini" id="selectionHint">아직 선택 안 됨</div>
+      </div>
+
+      <div class="rows" id="rows"></div>
+
+      <div class="footerActions">
+        <sl-button id="btnSubmit" variant="primary">제출하기</sl-button>
+      </div>
+
+      <div class="hint">
+        * 제출은 “한 번에” 처리돼. 중간에 실수해도 다시 드래그해서 바꾸면 돼.
+      </div>
+    </section>
   </div>
 
-  <script>
-    const words = Array.from({ length: 20 }, (_, i) => ({
-      en: 'word' + (i + 1),
-      ko: '이 단어의 한국어 의미입니다'
-    }));
+  <!-- 충전 모달 -->
+  <sl-dialog id="dlgCharge" label="충전하기" style="--width: 420px;">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div id="chargeTip" style="font-weight:800; letter-spacing:-0.02em;"></div>
+      <div id="chargeSub" style="color:rgba(0,0,0,.55); font-size:13px; line-height:1.45;"></div>
 
-    const list = document.getElementById('list');
+      <sl-progress-bar id="chargeProg" value="0" style="display:none;"></sl-progress-bar>
 
-    words.forEach(word => {
-      const track = document.createElement('div');
-      track.className = 'track';
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+        <div id="chargeRemain" style="font-size:12px; color:rgba(0,0,0,.45);">오늘 남은 충전 3/3</div>
+        <div style="display:flex; gap:10px;">
+          <sl-button id="chargeDo" variant="primary">충전하기</sl-button>
+          <sl-button id="chargeClose" variant="default">닫기</sl-button>
+        </div>
+      </div>
+    </div>
+  </sl-dialog>
 
-      track.innerHTML = `
-        <div class="label left">몰라요</div>
-        <div class="label right">알아요</div>
-        <div class="pill">${word.en}</div>
-        <div class="meaning">${word.ko}</div>
+  <!-- 제출 모달 -->
+  <sl-dialog id="dlgSubmit" label="제출하시겠습니까?" style="--width: 420px;">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div id="submitTip" style="font-weight:800; letter-spacing:-0.02em;"></div>
+      <div style="color:rgba(0,0,0,.55); font-size:13px; line-height:1.45;">
+        오늘 선택한 내용을 저장하고, 결과 화면으로 이동해.
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
+        <sl-button id="submitDo" variant="primary">제출하기</sl-button>
+        <sl-button id="submitClose" variant="default">닫기</sl-button>
+      </div>
+    </div>
+  </sl-dialog>
+
+  <!-- 업데이트 중 오버레이 -->
+  <div class="overlay" id="overlay">
+    <div class="overlayCard">
+      <div class="overlayTitle">통계 업데이트 중…</div>
+      <div class="overlaySub">잠깐만! 거의 다 됐어.</div>
+      <sl-spinner style="font-size: 26px;"></sl-spinner>
+    </div>
+  </div>
+
+<script>
+(() => {
+  /***********************
+   * 1) 데이터/저장소 (프로토타입)
+   ***********************/
+  const LS_KEY = "vc_proto_v1";
+  const todayTargetAdd = 10;
+  const dailyChargeLimit = 3;
+
+  // “프리셋 풀” (프로토타입용: 200개 정도)
+  // 실제론 추후 파일/DB로 교체
+  const WORD_POOL = [
+    ["analyze","분석하다"],["assume","가정하다"],["evidence","증거"],["infer","추론하다"],["interpret","해석하다"],
+    ["justify","정당화하다"],["conclude","결론내리다"],["contrast","대조하다"],["maintain","유지하다"],["derive","도출하다"],
+    ["concept","개념"],["abstract","추상적인"],["concrete","구체적인"],["consistent","일관된"],["significant","중요한"],
+    ["approximate","대략적인"],["precise","정확한"],["expand","확장하다"],["reduce","줄이다"],["enhance","향상시키다"],
+    ["persist","지속되다"],["resolve","해결하다"],["strategy","전략"],["variable","변수"],["reliable","신뢰할 만한"],
+    ["occur","발생하다"],["imply","암시하다"],["indicate","나타내다"],["reflect","반영하다"],["affect","영향을 미치다"],
+    ["benefit","이익"],["challenge","도전/문제"],["approach","접근"],["context","문맥"],["factor","요인"],
+    ["estimate","추정하다"],["focus","집중하다"],["priority","우선순위"],["resource","자원"],["efficient","효율적인"],
+    ["consistent","일관된"],["criteria","기준"],["sustain","지속하다"],["eliminate","제거하다"],["confirm","확인하다"],
+    ["distinct","뚜렷한"],["compensate","보상하다"],["alternative","대안"],["demand","요구"],["supply","공급"],
+    ["reveal","드러내다"],["emphasize","강조하다"],["collapse","붕괴하다"],["recover","회복하다"],["resilient","회복력 있는"],
+    ["inevitable","피할 수 없는"],["commit","전념하다"],["evaluate","평가하다"],["monitor","모니터하다"],["adjust","조정하다"],
+    ["sequence","순서"],["accumulate","누적하다"],["frequency","빈도"],["pattern","패턴"],["trigger","방아쇠/유발하다"],
+    ["simulate","시뮬레이션하다"],["implement","구현하다"],["optimize","최적화하다"],["maintain","유지하다"],["allocate","할당하다"],
+    ["clarify","명확히 하다"],["assess","평가하다"],["predict","예측하다"],["prevent","예방하다"],["mitigate","완화하다"],
+    ["reinforce","강화하다"],["adapt","적응하다"],["intense","강렬한"],["stable","안정적인"],["volatile","변동이 큰"],
+    ["compete","경쟁하다"],["reverse","역전하다"],["overcome","극복하다"],["persist","버티다"],["discipline","규율/훈련"],
+    ["foundation","기초"],["framework","틀/프레임워크"],["insight","통찰"],["objective","객관적인"],["subjective","주관적인"],
+    ["quantity","양"],["quality","질"],["convert","전환하다"],["integrate","통합하다"],["isolate","고립시키다"],
+    ["verify","검증하다"],["validate","타당화하다"],["assumption","가정"],["hypothesis","가설"],["consequence","결과"],
+    ["subtle","미묘한"],["robust","견고한"],["fragile","취약한"],["explicit","명시적인"],["implicit","암묵적인"],
+    ["retain","유지하다"],["recall","회상하다"],["review","복습하다"],["revise","수정하다"],["summarize","요약하다"],
+    ["derive","유도하다"],["deduce","연역하다"],["induce","귀납하다"],["negotiate","협상하다"],["resolve","해결하다"],
+    ["scope","범위"],["constraint","제약"],["parameter","매개변수"],["threshold","임계값"],["ratio","비율"],
+    ["random","무작위"],["deterministic","결정적인"],["probability","확률"],["approximation","근사"],["precision","정밀도"],
+    ["motivate","동기부여하다"],["hesitate","망설이다"],["postpone","미루다"],["commitment","다짐"],["habit","습관"],
+    ["deadline","마감"],["schedule","일정"],["routine","루틴"],["fatigue","피로"],["recover","회복하다"],
+    ["consistency","꾸준함"],["momentum","탄력"],["breakthrough","돌파구"],["setback","좌절"],["stamina","지구력"],
+    ["objective","목표"],["priority","우선순위"],["tradeoff","상충"],["balance","균형"],["allocate","배분하다"],
+    ["independent","독립적인"],["dependent","의존적인"],["sequence","순서"],["interval","간격"],["duration","지속시간"]
+  ];
+
+  const TIPS = [
+    "뜻을 보고 “아는 느낌”이 들면, 바로 오른쪽으로 고정하기 전에 1초만 더 확인해봐.",
+    "몰라요로 보낸 단어는 ‘틀린 단어’가 아니라 ‘성장 포인트’야.",
+    "오늘은 속도보다 정확. 고정 후 뜻을 한 번 읽는 것만으로도 효과가 커.",
+    "단어를 오른쪽으로 보냈다면, 예문을 떠올릴 수 있는지 1초만 체크!",
+    "충전은 ‘시작 버튼’이야. 10개만 처리해도 오늘은 성공.",
+    "몰라요 3회 이상 단어는 ‘정면돌파’(니가 뭔데?)에서 다시 만나게 될 거야.",
+    "복습은 ‘잊어버리기 직전’이 가장 효율적이야. (혹시 모르니까..)",
+    "중간에 실수해도 괜찮아. 다시 드래그해서 바꾸는 게 이 UX의 핵심이야."
+  ];
+
+  const todayKey = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const loadState = () => {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) {
+      return {
+        meta: {
+          date: todayKey(),
+          chargeUsed: 0,
+          usedTipIdx: [],
+        },
+        today: [], // [{w, m, state: "neutral"|"know"|"dont", x}]
+        wordStats: {}, // w -> { latest:"know/dont", knowCount, dontCount, lastKnowAt, lastDontAt, lastAnyAt }
+        processedSubmitCount: 0 // 누적(오늘의 단어에서 제출한 단어 수의 누적 합)
+      };
+    }
+    try{
+      const st = JSON.parse(raw);
+      // 날짜 바뀌면 충전 횟수/팁 사용 초기화
+      const tk = todayKey();
+      if (!st.meta || st.meta.date !== tk){
+        st.meta = { date: tk, chargeUsed: 0, usedTipIdx: [] };
+      }
+      st.today = Array.isArray(st.today) ? st.today : [];
+      st.wordStats = st.wordStats || {};
+      st.processedSubmitCount = Number(st.processedSubmitCount || 0);
+      return st;
+    }catch(e){
+      localStorage.removeItem(LS_KEY);
+      return loadState();
+    }
+  };
+
+  const saveState = (st) => localStorage.setItem(LS_KEY, JSON.stringify(st));
+
+  const pickTipNoRepeatToday = (st) => {
+    const used = new Set(st.meta.usedTipIdx || []);
+    const candidates = [];
+    for (let i=0;i<TIPS.length;i++){
+      if (!used.has(i)) candidates.push(i);
+    }
+    // 다 썼으면 리셋(프로토타입)
+    let idx;
+    if (candidates.length === 0) {
+      st.meta.usedTipIdx = [];
+      idx = Math.floor(Math.random()*TIPS.length);
+    } else {
+      idx = candidates[Math.floor(Math.random()*candidates.length)];
+    }
+    st.meta.usedTipIdx = Array.isArray(st.meta.usedTipIdx) ? st.meta.usedTipIdx : [];
+    st.meta.usedTipIdx.push(idx);
+    saveState(st);
+    return TIPS[idx];
+  };
+
+  const randPick = (arr) => arr[Math.floor(Math.random()*arr.length)];
+
+  const addTodayWords = (st, n) => {
+    const existing = new Set(st.today.map(x => x.w));
+    // pool에서 중복 피해서 뽑기
+    const candidates = WORD_POOL.filter(([w]) => !existing.has(w));
+    if (candidates.length === 0) return 0;
+
+    const add = Math.min(n, candidates.length);
+    for (let i=0;i<add;i++){
+      const [w,m] = candidates.splice(Math.floor(Math.random()*candidates.length), 1)[0];
+      st.today.push({ w, m, state: "neutral", x: 0 }); // x: -1..+1
+    }
+    saveState(st);
+    return add;
+  };
+
+  /***********************
+   * 2) UI 유틸
+   ***********************/
+  const toastHost = document.getElementById("toastHost");
+  const toast = (message, variant="primary") => {
+    const alert = document.createElement("sl-alert");
+    alert.variant = variant;
+    alert.closable = true;
+    alert.duration = 1800;
+    alert.innerHTML = `<sl-icon slot="icon" name="info-circle"></sl-icon>${message}`;
+    toastHost.appendChild(alert);
+    alert.toast();
+    setTimeout(() => alert.remove(), 3000);
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+
+  /***********************
+   * 3) 렌더
+   ***********************/
+  const rowsEl = document.getElementById("rows");
+  const todayCountEl = document.getElementById("todayCount");
+  const chargeLeftEl = document.getElementById("chargeLeft");
+  const selectionHint = document.getElementById("selectionHint");
+
+  let state = loadState();
+
+  const updateTopMeta = () => {
+    todayCountEl.textContent = `${state.today.length}개`;
+    const left = Math.max(0, dailyChargeLimit - (state.meta.chargeUsed || 0));
+    chargeLeftEl.textContent = `오늘 남은 충전 ${left}/${dailyChargeLimit}`;
+
+    const chosen = state.today.filter(x => x.state !== "neutral").length;
+    if (state.today.length === 0) selectionHint.textContent = "아직 단어가 없어. 충전하기로 시작!";
+    else selectionHint.textContent = `${chosen}/${state.today.length} 선택됨`;
+  };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // x: -1..+1 → 색/톤
+  const lerp = (a,b,t) => a + (b-a)*t;
+  const mixRGB = (c1, c2, t) => {
+    const r = Math.round(lerp(c1[0], c2[0], t));
+    const g = Math.round(lerp(c1[1], c2[1], t));
+    const b = Math.round(lerp(c1[2], c2[2], t));
+    return `rgb(${r},${g},${b})`;
+  };
+
+  // neutral: gray, left: red-ish, right: green-ish
+  const NEU_BG = [210,210,210];
+  const LEFT_BG = [244, 90, 90];
+  const RIGHT_BG = [62, 198, 122];
+
+  const render = () => {
+    rowsEl.innerHTML = "";
+
+    state.today.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.dataset.idx = String(idx);
+
+      row.innerHTML = `
+        <div class="track">
+          <div class="zone left" data-zone="left">몰라요</div>
+          <div class="centerText ${item.state === "neutral" ? "" : "meaning"}" data-center>
+            ${item.state === "neutral" ? escapeHtml(item.w) : escapeHtml(item.m)}
+          </div>
+          <div class="zone right" data-zone="right">알아요</div>
+          <div class="thumb" data-thumb>${escapeHtml(item.w)}</div>
+        </div>
+        <div class="meta">
+          <div>상태: <span class="state" data-state>${labelState(item.state)}</span></div>
+          <div style="opacity:.65;">드래그/클릭으로 변경 가능</div>
+        </div>
       `;
 
-      const pill = track.querySelector('.pill');
+      rowsEl.appendChild(row);
 
-      pill.addEventListener('click', () => {
-        if (!track.classList.contains('know') && !track.classList.contains('dontknow')) {
-          track.classList.add('know', 'show-meaning');
-        } else if (track.classList.contains('know')) {
-          track.classList.remove('know');
-          track.classList.add('dontknow');
-        } else {
-          track.classList.remove('dontknow');
-          track.classList.remove('show-meaning');
-        }
+      const track = row.querySelector(".track");
+      const thumb = row.querySelector("[data-thumb]");
+      const leftZone = row.querySelector('[data-zone="left"]');
+      const rightZone = row.querySelector('[data-zone="right"]');
+      const center = row.querySelector("[data-center]");
+      const stateEl = row.querySelector("[data-state]");
+
+      // 초기 위치/스타일
+      applyVisual(track, thumb, leftZone, rightZone, center, item);
+
+      // 클릭 fallback
+      leftZone.addEventListener("click", () => snapTo(item, "dont", track, thumb, leftZone, rightZone, center, stateEl));
+      rightZone.addEventListener("click", () => snapTo(item, "know", track, thumb, leftZone, rightZone, center, stateEl));
+
+      // 드래그
+      attachDrag(track, thumb, item, () => {
+        // on update
+        applyVisual(track, thumb, leftZone, rightZone, center, item);
+      }, (final) => {
+        // on end: snap
+        const snapped = finalSnap(item);
+        item.state = snapped;
+        // center text changes only when snapped
+        center.textContent = (item.state === "neutral") ? item.w : item.m;
+        center.classList.toggle("meaning", item.state !== "neutral");
+        stateEl.textContent = labelState(item.state);
+
+        // snap to exact x
+        if (item.state === "dont") item.x = -1;
+        else if (item.state === "know") item.x = 1;
+        else item.x = 0;
+
+        saveState(state);
+        applyVisual(track, thumb, leftZone, rightZone, center, item);
+        updateTopMeta();
       });
-
-      list.appendChild(track);
     });
-  </script>
+
+    updateTopMeta();
+  };
+
+  const escapeHtml = (s) =>
+    String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+  const labelState = (st) => {
+    if (st === "know") return "알아요";
+    if (st === "dont") return "몰라요";
+    return "미선택";
+  };
+
+  const applyVisual = (track, thumb, leftZone, rightZone, center, item) => {
+    const x = clamp(item.x || 0, -1, 1); // -1..+1
+
+    // thumb position
+    const min = 16; // %
+    const max = 84; // %
+    const leftPct = lerp(min, max, (x+1)/2);
+    thumb.style.left = `${leftPct}%`;
+
+    // continuous background color
+    // tLeft: how much to left, tRight: how much to right
+    const tRight = clamp((x+1)/2, 0, 1);
+    const tLeft = clamp((1 - tRight), 0, 1);
+
+    // blend: neutral -> left or right based on sign
+    let bg;
+    if (x < 0){
+      bg = mixRGB(NEU_BG, LEFT_BG, Math.abs(x));
+      thumb.style.color = "white";
+    } else if (x > 0){
+      bg = mixRGB(NEU_BG, RIGHT_BG, Math.abs(x));
+      thumb.style.color = "white";
+    } else {
+      bg = "rgba(0,0,0,.12)";
+      thumb.style.color = "rgba(0,0,0,.85)";
+    }
+    thumb.style.background = bg;
+
+    // label dynamics
+    const leftEmph = clamp((-x), 0, 1);
+    const rightEmph = clamp((x), 0, 1);
+
+    leftZone.style.opacity = String(lerp(0.45, 0.95, leftEmph));
+    rightZone.style.opacity = String(lerp(0.45, 0.95, rightEmph));
+
+    leftZone.style.transform = `scale(${lerp(0.92, 1.03, leftEmph)})`;
+    rightZone.style.transform = `scale(${lerp(0.92, 1.03, rightEmph)})`;
+
+    // subtle color hint (still gentle)
+    leftZone.style.color = `rgba(0,0,0,${lerp(0.34, 0.62, leftEmph)})`;
+    rightZone.style.color = `rgba(0,0,0,${lerp(0.34, 0.62, rightEmph)})`;
+
+    // center text fade when snapped? keep stable
+    center.style.opacity = String(lerp(1, 0.95, Math.abs(x)));
+    center.style.transform = `translateY(${lerp(0, -1, Math.abs(x))}px)`;
+  };
+
+  const attachDrag = (track, thumb, item, onMove, onEnd) => {
+    let dragging = false;
+    let startX = 0;
+    let startLeft = 0;
+
+    const pointerDown = (e) => {
+      dragging = true;
+      thumb.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+
+      // current left% -> pixel
+      const rect = track.getBoundingClientRect();
+      const thumbLeftPct = parseFloat(thumb.style.left || "50");
+      startLeft = rect.left + (thumbLeftPct/100) * rect.width;
+      thumb.style.transition = "none";
+      e.preventDefault();
+    };
+
+    const pointerMove = (e) => {
+      if (!dragging) return;
+      const rect = track.getBoundingClientRect();
+      const dx = e.clientX - startX;
+      const newPx = startLeft + dx;
+      const pct = clamp((newPx - rect.left) / rect.width, 0, 1);
+      const x = (pct * 2) - 1; // -1..+1
+
+      item.x = x;
+      onMove();
+    };
+
+    const pointerUp = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      thumb.style.transition = ""; // restore
+      onEnd(item);
+    };
+
+    thumb.addEventListener("pointerdown", pointerDown);
+    thumb.addEventListener("pointermove", pointerMove);
+    thumb.addEventListener("pointerup", pointerUp);
+    thumb.addEventListener("pointercancel", pointerUp);
+  };
+
+  const finalSnap = (item) => {
+    const x = clamp(item.x || 0, -1, 1);
+    const TH = 0.28;
+    if (x <= -TH) return "dont";
+    if (x >= TH) return "know";
+    return "neutral";
+  };
+
+  const snapTo = (item, to, track, thumb, leftZone, rightZone, center, stateEl) => {
+    // to: "dont"|"know"
+    item.state = to;
+    item.x = (to === "dont") ? -1 : 1;
+    center.textContent = item.m;
+    center.classList.toggle("meaning", true);
+    stateEl.textContent = labelState(item.state);
+    saveState(state);
+    applyVisual(track, thumb, leftZone, rightZone, center, item);
+    updateTopMeta();
+  };
+
+  /***********************
+   * 4) 충전하기
+   ***********************/
+  const dlgCharge = $("#dlgCharge");
+  const btnCharge = $("#btnCharge");
+  const chargeTip = $("#chargeTip");
+  const chargeSub = $("#chargeSub");
+  const chargeRemain = $("#chargeRemain");
+  const chargeDo = $("#chargeDo");
+  const chargeClose = $("#chargeClose");
+  const chargeProg = $("#chargeProg");
+
+  const openChargeDialog = () => {
+    state = loadState(); // 최신
+    const left = Math.max(0, dailyChargeLimit - (state.meta.chargeUsed || 0));
+
+    const tip = pickTipNoRepeatToday(state);
+    chargeTip.textContent = tip;
+
+    chargeSub.textContent = `누를 때마다 오늘의 단어가 ${todayTargetAdd}개 추가돼. (프로토타입: 프리셋 풀에서 랜덤 채움)`;
+    chargeRemain.textContent = `오늘 남은 충전 ${left}/${dailyChargeLimit}`;
+
+    chargeProg.style.display = "none";
+    chargeProg.value = 0;
+
+    chargeDo.disabled = left <= 0;
+    dlgCharge.show();
+  };
+
+  btnCharge.addEventListener("click", openChargeDialog);
+  chargeClose.addEventListener("click", () => dlgCharge.hide());
+
+  chargeDo.addEventListener("click", async () => {
+    state = loadState();
+    const used = state.meta.chargeUsed || 0;
+    const left = dailyChargeLimit - used;
+
+    if (left <= 0){
+      toast("오늘 충전은 이미 3번 다 썼어.", "warning");
+      return;
+    }
+
+    // 진행감 연출
+    chargeDo.disabled = true;
+    chargeProg.style.display = "";
+    chargeProg.value = 10;
+
+    await sleep(120);
+    chargeProg.value = 35;
+    await sleep(120);
+    chargeProg.value = 55;
+    await sleep(120);
+
+    const added = addTodayWords(state, todayTargetAdd);
+
+    await sleep(120);
+    chargeProg.value = 85;
+    await sleep(120);
+    chargeProg.value = 100;
+
+    if (added > 0){
+      state.meta.chargeUsed = used + 1;
+      saveState(state);
+      toast(`오늘의 단어 ${added}개 충전 완료!`, "success");
+      dlgCharge.hide();
+      render();
+    } else {
+      toast("추가할 단어가 더 없네(풀 소진).", "danger");
+    }
+
+    // re-enable
+    chargeDo.disabled = false;
+  });
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  /***********************
+   * 5) 제출하기
+   ***********************/
+  const dlgSubmit = $("#dlgSubmit");
+  const btnSubmit = $("#btnSubmit");
+  const submitTip = $("#submitTip");
+  const submitDo = $("#submitDo");
+  const submitClose = $("#submitClose");
+  const overlay = $("#overlay");
+
+  const openSubmitDialog = () => {
+    state = loadState();
+
+    if (state.today.length === 0){
+      toast("단어가 0개야. 먼저 ‘충전하기’를 눌러줘!", "warning");
+      return;
+    }
+
+    const unselected = state.today.filter(x => x.state === "neutral").length;
+    if (unselected > 0){
+      toast(`미선택 ${unselected}개가 있어. 전부 선택해야 제출할 수 있어.`, "warning");
+      return;
+    }
+
+    const tip = pickTipNoRepeatToday(state);
+    submitTip.textContent = tip;
+    dlgSubmit.show();
+  };
+
+  btnSubmit.addEventListener("click", openSubmitDialog);
+  submitClose.addEventListener("click", () => dlgSubmit.hide());
+
+  submitDo.addEventListener("click", async () => {
+    dlgSubmit.hide();
+    state = loadState();
+
+    // 안전 체크
+    if (state.today.length === 0) return;
+    if (state.today.some(x => x.state === "neutral")){
+      toast("미선택이 남아있어서 제출을 취소했어.", "warning");
+      return;
+    }
+
+    // 통계 반영 (프로토타입)
+    const now = Date.now();
+    let submittedCount = 0;
+
+    state.today.forEach(item => {
+      const w = item.w;
+      const ws = state.wordStats[w] || {
+        latest: null,
+        knowCount: 0,
+        dontCount: 0,
+        lastKnowAt: null,
+        lastDontAt: null,
+        lastAnyAt: null
+      };
+
+      if (item.state === "know"){
+        ws.latest = "know";
+        ws.knowCount += 1;
+        ws.lastKnowAt = now;
+        ws.lastAnyAt = now;
+        submittedCount++;
+      } else if (item.state === "dont"){
+        ws.latest = "dont";
+        ws.dontCount += 1;
+        ws.lastDontAt = now;
+        ws.lastAnyAt = now;
+        submittedCount++;
+      }
+      state.wordStats[w] = ws;
+    });
+
+    state.processedSubmitCount = (state.processedSubmitCount || 0) + submittedCount;
+
+    // 오늘의 단어 목록은 “제출 후에도 남겨둘지/비울지”는 아직 정책 미정이지만
+    // 프로토타입에서는 “다음 날/다음 충전도 계속 쌓이는” 느낌을 위해 유지.
+    // 원하면 여기서 state.today = [] 로 바꿔도 됨.
+    saveState(state);
+
+    // 스무스 이동: 오버레이 + 짧은 지연 후 hub.html
+    overlay.classList.add("show");
+    await sleep(850);
+    window.location.href = "hub.html";
+  });
+
+  /***********************
+   * 6) 부팅
+   ***********************/
+  render();
+
+})();
+</script>
 </body>
 </html>
