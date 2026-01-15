@@ -1,1 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <title>Vocab Check</title>
+
+  <!-- Shoelace -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/themes/light.css" />
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/shoelace.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f7f7f7;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 520px;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .track {
+      position: relative;
+      background: #eaeaea;
+      border-radius: 14px;
+      height: 64px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .label {
+      position: absolute;
+      font-size: 12px;
+      opacity: 0.4;
+      transition: all 0.2s ease;
+    }
+
+    .label.left { left: 12px; }
+    .label.right { right: 12px; }
+
+    .pill {
+      position: absolute;
+      background: #ddd;
+      border-radius: 999px;
+      padding: 10px 18px;
+      cursor: grab;
+      transition: background 0.2s ease, transform 0.2s ease;
+      user-select: none;
+      font-weight: 600;
+    }
+
+    .meaning {
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .track.know .pill { background: #c9f2d6; }
+    .track.know .label.right { opacity: 1; color: #2a8f4d; }
+    .track.know .label.left { opacity: 0.2; }
+
+    .track.dontknow .pill { background: #f5c2c2; }
+    .track.dontknow .label.left { opacity: 1; color: #b3261e; }
+    .track.dontknow .label.right { opacity: 0.2; }
+
+    .track.show-meaning .meaning {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>오늘의 단어</h1>
+
+    <div id="list"></div>
+
+    <sl-button variant="primary" style="width:100%; margin-top:12px;">
+      완료
+    </sl-button>
+  </div>
+
+  <script>
+    const words = Array.from({ length: 20 }, (_, i) => ({
+      en: 'word' + (i + 1),
+      ko: '이 단어의 한국어 의미입니다'
+    }));
+
+    const list = document.getElementById('list');
+
+    words.forEach(word => {
+      const track = document.createElement('div');
+      track.className = 'track';
+
+      track.innerHTML = `
+        <div class="label left">몰라요</div>
+        <div class="label right">알아요</div>
+        <div class="pill">${word.en}</div>
+        <div class="meaning">${word.ko}</div>
+      `;
+
+      const pill = track.querySelector('.pill');
+
+      pill.addEventListener('click', () => {
+        if (!track.classList.contains('know') && !track.classList.contains('dontknow')) {
+          track.classList.add('know', 'show-meaning');
+        } else if (track.classList.contains('know')) {
+          track.classList.remove('know');
+          track.classList.add('dontknow');
+        } else {
+          track.classList.remove('dontknow');
+          track.classList.remove('show-meaning');
+        }
+      });
+
+      list.appendChild(track);
+    });
+  </script>
+</body>
+</html>
