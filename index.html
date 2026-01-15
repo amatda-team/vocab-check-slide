@@ -36,6 +36,7 @@
       --pill-w: 140px;
 
       --pad: 12px;
+      --lr-pad: 12px; /* ✅ 라벨/의미 좌우 기준 패딩 통일 */
     }
 
     *{ box-sizing: border-box; }
@@ -133,6 +134,13 @@
       border: 1px solid var(--line);
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
+    
+      /* ✅ “두둥” 방지용: 초기 렌더 안정화 후 부드럽게 등장 */
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .track.preboot{
+      opacity: 0;
+      transform: translateY(2px);
     }
 
     /* tint continuous (left/right glow) */
@@ -150,11 +158,11 @@
       background: radial-gradient(600px 240px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
     }
 
-    /* ✅ Labels: vertical center */
+    /* ✅ Labels: padding 기준 통일 */
     .labels{
       position:absolute;
-      left: 14px;
-      right: 14px;
+      left: var(--lr-pad);
+      right: var(--lr-pad);
       top: 50%;
       transform: translateY(-50%);
       display:flex;
@@ -163,9 +171,10 @@
       pointer-events:none;
       user-select:none;
       -webkit-user-select:none;
-      transition: opacity .10s linear; /* 드래그 중 연속 변화가 있으니 linear로 */
+      transition: opacity .14s ease;
       z-index: 1;
     }
+
     .label{
       font-size: 13px;
       color: rgba(255,255,255,.52);
@@ -178,17 +187,18 @@
     .track.is-know .labels{ opacity: 0; }
 
     /* meaning slots (always have text; opacity is continuous) */
+    /* ✅ meaning slots: padding/좌우 기준 통일 */
     .meaning-slot{
       position:absolute;
       top: 50%;
       transform: translateY(-50%);
       width: 46%;
-      padding: 0 12px;
+      padding: 0 var(--lr-pad);
       pointer-events:none;
-
+    
       opacity: 0;
       transition: opacity .10s linear, transform .16s ease;
-
+    
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -197,11 +207,11 @@
       z-index: 1;
     }
     .meaning-left{
-      left: 10px;
+      left: 0;
       text-align:left;
     }
     .meaning-right{
-      right: 10px;
+      right: 0;
       text-align:right;
     }
     .meaning-slot.small{ font-size: 13px; }
@@ -458,12 +468,12 @@
      Helpers: color lerp
   ========================= */
   const COL_NEUTRAL_BG = [230, 235, 245, 0.22];
-  const COL_DANGER_BG = [255, 90, 90, 0.30];
-  const COL_OK_BG = [80, 220, 140, 0.30];
+  const COL_DANGER_BG  = [255,  90,  90, 0.30];
+  const COL_OK_BG      = [ 80, 220, 140, 0.30];
 
   const COL_NEUTRAL_BD = [255, 255, 255, 0.14];
-  const COL_DANGER_BD = [255, 90, 90, 0.32];
-  const COL_OK_BD = [80, 220, 140, 0.32];
+  const COL_DANGER_BD  = [255,  90,  90, 0.32];
+  const COL_OK_BD      = [ 80, 220, 140, 0.32];
 
   function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp01(x) { return Math.max(0, Math.min(1, x)); }
@@ -500,11 +510,19 @@
   }
 
   /* =========================
+     Easing (boot animation)
+  ========================= */
+  function easeInOutCubic(t){
+    t = clamp01(t);
+    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+  }
+
+  /* =========================
      Track builder
   ========================= */
   function buildTrackRow(wordObj, index, state) {
     const el = document.createElement("div");
-    el.className = "track is-unknown";
+    el.className = "track is-unknown preboot"; // ✅ preboot: 두둥 방지
     el.dataset.index = String(index);
 
     el.innerHTML = `
@@ -526,15 +544,15 @@
       <div class="pill">${escapeHtml(wordObj.word)}</div>
     `;
 
-    const tintL = el.querySelector(".tint.left");
-    const tintR = el.querySelector(".tint.right");
-    const pill = el.querySelector(".pill");
-    const meanL = el.querySelector(".meaning-left");
-    const meanR = el.querySelector(".meaning-right");
+    const tintL  = el.querySelector(".tint.left");
+    const tintR  = el.querySelector(".tint.right");
+    const pill   = el.querySelector(".pill");
+    const meanL  = el.querySelector(".meaning-left");
+    const meanR  = el.querySelector(".meaning-right");
     const labels = el.querySelector(".labels");
-    const zoneL = el.querySelector(".zone.left");
-    const zoneC = el.querySelector(".zone.center");
-    const zoneR = el.querySelector(".zone.right");
+    const zoneL  = el.querySelector(".zone.left");
+    const zoneC  = el.querySelector(".zone.center");
+    const zoneR  = el.querySelector(".zone.right");
 
     // meaning text always set (opacity handles visibility)
     meanL.textContent = wordObj.meaning || "";
@@ -544,14 +562,15 @@
 
     let minX = 0, maxX = 0, curX = 0;
 
-    // ✅ 중앙 영역 더 넓힘
-    const TH_LEFT = 0.40;
+    // 중앙 영역 넓힘
+    const TH_LEFT  = 0.40;
     const TH_RIGHT = 0.60;
 
-    // ✅ 드래그 시작 시점 상태(unknown에서 드래그할 때만 라벨 연속 페이드)
+    // 드래그/부트 연속 라벨 페이드용
     let dragOriginStatus = "unknown";
+    let bootAnimating = false;
 
-    // ✅ 세로 스크롤 의도 판별
+    // 세로 스크롤 의도 판별
     let pending = false;
     let intent = null; // "drag" | "scroll" | null
     let pid = null;
@@ -589,7 +608,7 @@
       const p = progress(x);
 
       // tint continuous
-      const leftStr = Math.max(0, (0.5 - p) / 0.5);
+      const leftStr  = Math.max(0, (0.5 - p) / 0.5);
       const rightStr = Math.max(0, (p - 0.5) / 0.5);
       tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
       tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
@@ -618,8 +637,13 @@
       meanR.style.transform = `translateY(-50%) translateX(${Math.round(6 * (1 - opR))}px)`;
       meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6 * (1 - opL))}px)`;
 
-      // unknown에서 drag 중 라벨도 연속 변화 (겹침 방지)
-      if (intent === "drag" && dragOriginStatus === "unknown") {
+      // ✅ (중요) boot/drag 중에도 라벨은 연속적으로 사라져서 의미와 겹침 방지
+      // - 조건: unknown에서 시작(boot는 항상 unknown에서 시작)
+      const shouldFadeLabels =
+        (bootAnimating && dragOriginStatus === "unknown") ||
+        (intent === "drag" && dragOriginStatus === "unknown");
+
+      if (shouldFadeLabels) {
         const labelOp = clamp01(1 - Math.max(opR, opL));
         labels.style.opacity = String(labelOp);
       } else {
@@ -690,42 +714,73 @@
       if (mode === "resize" && !widthChanged) return;
 
       if (mode === "resize") {
+        // resize는 연출 금지: 조용히 보정만
         pill.classList.add("booting");
+        bootAnimating = false;
+        labels.style.opacity = "";
+
         setTrackClass(st);
         moveTo(statusToX(st), true);
+
         requestAnimationFrame(() => pill.classList.remove("booting"));
         return;
       }
 
-      // ✅ boot: 중앙 고정 → hold → ease 이동
+      // ✅ boot: 중앙 고정 → hold → rAF ease 이동 (연속 변화)
       const holdMs = getVarMs("--boot-hold-ms", 600);
       const moveMs = getVarMs("--boot-move-ms", 1500);
 
-      pill.classList.add("booting");
+      dragOriginStatus = "unknown"; // boot는 unknown에서 시작
+      bootAnimating = false;
+
+      pill.classList.add("booting"); // CSS transition 끄고 우리가 rAF로 움직임
       setTrackClass("unknown");
       moveTo(statusToX("unknown"), true);
 
+      // ✅ 첫 위치 확정 후에만 보여서 “두둥” 제거
       requestAnimationFrame(() => {
-        pill.classList.remove("booting");
+        el.classList.remove("preboot");
 
-        if (st !== "unknown") {
-          setTimeout(() => {
-            setTrackClass(st);
-            pill.classList.add("slow");
-            moveTo(statusToX(st), true);
-            setTimeout(() => pill.classList.remove("slow"), moveMs + 120);
-          }, holdMs);
-        } else {
-          setTrackClass("unknown");
-          moveTo(statusToX("unknown"), true);
+        // unknown이면 그냥 끝
+        if (st === "unknown") {
+          pill.classList.remove("booting");
+          return;
         }
+
+        // hold 후 이동 시작
+        setTimeout(() => {
+          bootAnimating = true;
+          const fromX = statusToX("unknown");
+          const toX = statusToX(st);
+          const t0 = performance.now();
+
+          function step(now) {
+            const t = clamp01((now - t0) / moveMs);
+            const e = easeInOutCubic(t);
+            const x = lerp(fromX, toX, e);
+            moveTo(x, false); // ✅ 연속 변화는 여기서 모두 따라감
+
+            if (t < 1) {
+              requestAnimationFrame(step);
+            } else {
+              bootAnimating = false;
+              labels.style.opacity = ""; // 정리
+
+              // ✅ 이동 끝에서만 상태 확정 (뚝변 방지)
+              pill.classList.remove("booting");
+              applyStatus(st, { save: false });
+            }
+          }
+
+          requestAnimationFrame(step);
+        }, holdMs);
       });
     }
 
-    // ✅ 최초 로드: boot 연출
+    // 최초 로드: boot 연출
     requestAnimationFrame(() => init("boot"));
 
-    // ✅ 리사이즈: width 변화 있을 때만 조용히 보정
+    // 리사이즈: width 변화 있을 때만 보정
     let resizeT = null;
     window.addEventListener("resize", () => {
       clearTimeout(resizeT);
@@ -748,7 +803,7 @@
 
       startClientX = e.clientX;
       startX = curX;
-      // ✅ 여기서는 preventDefault 하지 않음 (세로 스크롤 우선)
+      // 여기선 preventDefault 금지 (스크롤 우선)
     });
 
     pill.addEventListener("pointermove", (e) => {
@@ -780,7 +835,6 @@
 
       const dx = e.clientX - startClientX;
       moveTo(startX + dx, false);
-
       e.preventDefault();
     });
 
@@ -795,8 +849,6 @@
 
       pending = false;
       pill.classList.remove("dragging");
-
-      // 드래그 중 inline opacity 정리
       labels.style.opacity = "";
 
       const st = snapByX(curX);
@@ -809,7 +861,7 @@
     pill.addEventListener("pointerup", endDrag);
     pill.addEventListener("pointercancel", endDrag);
 
-    // click zones: left/right snap + center returns unknown
+    // click zones
     zoneL.addEventListener("click", () => applyStatus("dont"));
     zoneR.addEventListener("click", () => applyStatus("know"));
     zoneC.addEventListener("click", () => applyStatus("unknown"));
@@ -877,6 +929,7 @@
   render();
   requestAnimationFrame(() => document.documentElement.classList.add("ready"));
 </script>
+
  
   
 </body>
