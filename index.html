@@ -34,14 +34,30 @@
     }
 
     *{ box-sizing: border-box; }
+
+    /* ✅ (1) overscroll white flash 방지:
+       - iOS 바운스 때 html 배경이 비치지 않게 html/body 배경색 고정
+       - 실제 그라디언트는 fixed 레이어(::before)로 분리 */
+    html{
+      background: var(--bg0);
+    }
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Helvetica Neue", sans-serif;
+      color: var(--text);
+      min-height: 100svh;
+      background: transparent; /* 배경은 fixed 레이어가 담당 */
+    }
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
       background:
         radial-gradient(1200px 800px at 50% -200px, rgba(80,130,255,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1) 40%, var(--bg0));
-      color: var(--text);
-      min-height: 100svh;
+      transform: translateZ(0);
     }
 
     /* iOS: prevent custom element flash */
@@ -142,7 +158,7 @@
       pointer-events:none;
       user-select:none;
       -webkit-user-select:none;
-      transition: opacity .14s ease;
+      transition: opacity .10s linear; /* 드래그 중 연속 변화가 있으니 linear로 */
       z-index: 1;
     }
     .label{
@@ -232,6 +248,12 @@
       text-overflow: ellipsis;
     }
     .pill.dragging{ transition:none !important; }
+
+    /* ✅ (4) 초기 로딩 연출용: 중앙 배치 강제 + 저장상태로 '슥~' 이동 */
+    .pill.booting{ transition: none !important; }
+    .pill.slow{
+      transition: transform .55s cubic-bezier(.2,.9,.25,1), background .10s linear, border-color .10s linear !important;
+    }
 
     /* Footer CTA */
     .footer{
@@ -479,6 +501,7 @@
       const pill  = el.querySelector(".pill");
       const meanL = el.querySelector(".meaning-left");
       const meanR = el.querySelector(".meaning-right");
+      const labels = el.querySelector(".labels");
       const zoneL = el.querySelector(".zone.left");
       const zoneC = el.querySelector(".zone.center");
       const zoneR = el.querySelector(".zone.right");
@@ -492,21 +515,20 @@
       let minX = 0, maxX = 0, curX = 0;
       let dragging = false, pid = null, startClientX = 0, startX = 0;
 
-      // ✅ (1) unknown deadzone widened
+      // ✅ (3) 중앙 영역 더 넓힘
       // p <= TH_LEFT => dont, p >= TH_RIGHT => know, else unknown
-      const TH_LEFT  = 0.44;
-      const TH_RIGHT = 0.56;
+      const TH_LEFT  = 0.40;
+      const TH_RIGHT = 0.60;
 
-      // for continuous meaning opacity:
-      // meaning fades to 0 near center band (TH_LEFT~TH_RIGHT)
+      // ✅ 드래그 시작 시점 상태(unknown에서 드래그할 때만 라벨 연속 페이드)
+      let dragOriginStatus = "unknown";
+
       function meaningOpacityRight(p){ // for dont-side meaning (right slot)
-        // active when p < TH_LEFT, fade-out towards TH_LEFT
         if(p >= TH_LEFT) return 0;
         const t = (TH_LEFT - p) / TH_LEFT; // 1 at p=0, 0 at p=TH_LEFT
         return smoothstep(t);
       }
       function meaningOpacityLeft(p){ // for know-side meaning (left slot)
-        // active when p > TH_RIGHT, fade-in from TH_RIGHT to 1
         if(p <= TH_RIGHT) return 0;
         const t = (p - TH_RIGHT) / (1 - TH_RIGHT); // 0 at TH_RIGHT, 1 at 1
         return smoothstep(t);
@@ -529,13 +551,13 @@
       function applyTintAndPillAndMeaning(x){
         const p = progress(x);
 
-        // ✅ tint continuous
+        // tint continuous
         const leftStr = Math.max(0, (0.5 - p) / 0.5);
         const rightStr = Math.max(0, (p - 0.5) / 0.5);
         tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
         tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
 
-        // ✅ (3) pill color continuous (danger <-> neutral <-> ok)
+        // pill color continuous (danger <-> neutral <-> ok)
         let bg, bd;
         if(p <= 0.5){
           const t = p / 0.5; // 0..1
@@ -549,15 +571,28 @@
         pill.style.background = rgbaStr(bg);
         pill.style.borderColor = rgbaStr(bd);
 
-        // ✅ (3-1) meaning opacity continuous while dragging (and also while idle)
+        // meaning opacity continuous
         const opR = meaningOpacityRight(p);
         const opL = meaningOpacityLeft(p);
         meanR.style.opacity = String(opR);
         meanL.style.opacity = String(opL);
 
-        // optional micro motion (kept subtle)
+        // micro motion
         meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
         meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
+
+        // ✅ (2) unknown에서 드래그 중 라벨도 연속 변화
+        // - 원칙: 라벨/meaning 겹침 방지
+        // - unknown에서 드래그 시작한 경우에만 라벨을 점점 사라지게
+        // - 라벨 opacity = 1 - max(meaningOpacity)  (meaning이 올라올수록 라벨은 내려감)
+        if(dragging && dragOriginStatus === "unknown"){
+          const labelOp = clamp01(1 - Math.max(opR, opL));
+          labels.style.opacity = String(labelOp);
+        }else{
+          // 드래그 중이라도 origin이 unknown이 아니면(확정 상태에서 시작) 라벨은 계속 숨김 유지가 자연스럽다.
+          // (CSS 클래스 규칙에 맡김)
+          labels.style.opacity = "";
+        }
       }
 
       function moveTo(x, snap){
@@ -586,13 +621,18 @@
         return "unknown";
       }
 
-      function applyStatus(st){
-        wordObj.status = st;
-        state.words[index].status = st;
-        saveState(state);
+      function applyStatus(st, opts){
+        const save = !(opts && opts.save === false);
+
+        if(save){
+          wordObj.status = st;
+          state.words[index].status = st;
+          saveState(state);
+        }else{
+          wordObj.status = st;
+        }
 
         setTrackClass(st);
-        // ✅ snap to exact position; dynamics (tint/pill/meaning) are derived from x anyway
         moveTo(statusToX(st), true);
       }
 
@@ -605,15 +645,38 @@
 
       function init(){
         computeBounds();
+
         const st = wordObj.status || "unknown";
-        setTrackClass(st);
-        moveTo(statusToX(st), true);
+
+        // ✅ (4) 초기 로딩 플래시 제거:
+        // - 무조건 중앙에서 1프레임 먼저 그린 뒤
+        // - 저장된 상태(dont/know)가 있으면 '슬로우 모션'으로 이동
+        pill.classList.add("booting");           // transition off
+        setTrackClass("unknown");               // 라벨 보이게(중앙 시작 인상)
+        moveTo(statusToX("unknown"), true);     // 중앙 렌더
+
+        requestAnimationFrame(()=>{
+          pill.classList.remove("booting");     // transition on
+          // 저장상태가 중앙이 아니면 슥~ 이동
+          if(st !== "unknown"){
+            setTrackClass(st);
+            pill.classList.add("slow");
+            moveTo(statusToX(st), true);
+            setTimeout(()=> pill.classList.remove("slow"), 650);
+          }else{
+            // unknown이면 그대로
+            setTrackClass("unknown");
+            moveTo(statusToX("unknown"), true);
+          }
+        });
       }
 
       // drag
       pill.addEventListener("pointerdown", (e)=>{
         dragging = true;
         pid = e.pointerId;
+        dragOriginStatus = (wordObj.status || "unknown");
+
         pill.setPointerCapture(pid);
         pill.classList.add("dragging");
         computeBounds();
@@ -625,7 +688,7 @@
       pill.addEventListener("pointermove", (e)=>{
         if(!dragging || e.pointerId !== pid) return;
         const dx = e.clientX - startClientX;
-        moveTo(startX + dx, false); // continuous updates
+        moveTo(startX + dx, false);
         e.preventDefault();
       });
 
@@ -633,6 +696,10 @@
         if(!dragging || e.pointerId !== pid) return;
         dragging = false;
         pill.classList.remove("dragging");
+
+        // 드래그 중 inline opacity를 건드렸을 수 있으니 정리
+        labels.style.opacity = "";
+
         const st = snapByX(curX);
         applyStatus(st);
         e.preventDefault();
@@ -640,7 +707,7 @@
       pill.addEventListener("pointerup", endDrag);
       pill.addEventListener("pointercancel", endDrag);
 
-      // ✅ (2) click zones: left/right snap + center returns unknown
+      // click zones: left/right snap + center returns unknown
       zoneL.addEventListener("click", ()=> applyStatus("dont"));
       zoneR.addEventListener("click", ()=> applyStatus("know"));
       zoneC.addEventListener("click", ()=> applyStatus("unknown"));
