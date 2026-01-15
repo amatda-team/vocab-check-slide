@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>신호등보카 (Rebuild v1.2)</title>
+  <title>신호등보카 (Rebuild)</title>
 
   <!-- Shoelace (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
@@ -13,49 +13,40 @@
     :root{
       --app-max: 520px;
 
-      /* timings */
+      /* Layout */
+      --pad: 12px;
+      --lr-pad: 12px;
+      --radius: 18px;
+      --pill-radius: 999px;
+      --track-h: 72px;
+      --pill-h: 44px;
+      --pill-minw: 140px;
+
+      /* Timing */
       --move-ms: 360ms;
-      --peek-in-ms: 120ms;
-      --peek-hold-ms: 560ms;
-      --peek-out-ms: 200ms;
+      --peek-in-ms: 90ms;
+      --peek-hold-ms: 520ms;
+      --peek-out-ms: 160ms;
 
       /* Theme */
       --bg0: #070a10;
       --bg1: #0b0f14;
-
       --text: rgba(255,255,255,.92);
       --muted: rgba(255,255,255,.58);
-
       --track: rgba(255,255,255,.06);
       --line: rgba(255,255,255,.10);
 
-      --radius: 18px;
-      --pill-radius: 999px;
-
-      --track-h: 72px;
-
-      /* pill */
-      --pill-h: 44px;
-      --pill-minw: 140px;
-      --pill-pad-x: 14px;
-      --pill-bd: 1px;
-
-      --pad: 12px;
-
-      /* edges */
-      --edge-pad: 10px;
-
-      /* Lights */
+      /* Lights RGB */
       --red:   255, 90,  90;
       --green:  80, 220, 140;
       --amber: 255, 170,  70;
 
-      /* default pill (처음) */
-      --default-pill-alpha: .18;
-      --default-pill-bd-alpha: .12;
+      /* default pill */
+      --pill-bg: rgba(230,235,245,.22);
+      --pill-bd: rgba(255,255,255,.14);
     }
 
-    *{ box-sizing:border-box; }
+    *{ box-sizing: border-box; }
     html{ background: var(--bg0); }
     body{
       margin:0;
@@ -69,7 +60,7 @@
       position: fixed;
       inset: 0;
       z-index: -1;
-      pointer-events:none;
+      pointer-events: none;
       background:
         radial-gradient(1200px 800px at 50% -200px, rgba(80,130,255,.18), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1) 40%, var(--bg0));
@@ -113,55 +104,42 @@
       border-radius: 14px;
     }
 
-    /* 고정 신호등(헤더 아래 1회) */
+    /* One-time fixed lights (under header) */
     .lights-bar{
-      position: relative;
-      height: 36px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.03);
-      overflow: hidden;
       display:flex;
       align-items:center;
       justify-content:center;
-      gap: 18px;
-      margin: 8px 0 12px;
+      gap: 10px;
+      margin: 4px 0 14px;
+      padding: 10px 0 2px;
     }
-    .lights-bar::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      background: radial-gradient(600px 120px at 50% 0%, rgba(255,255,255,.06), transparent 60%);
-      opacity:.9;
-    }
-    .light-dot{
-      position: relative;
-      width: 14px;
-      height: 14px;
+    .lights-bar .dot{
+      width: 12px; height: 12px;
       border-radius: 999px;
-      opacity: .62;
-      filter: saturate(1.05);
+      opacity: .85;
+      box-shadow:
+        0 0 18px rgba(255,255,255,.10);
+      position: relative;
     }
-    .light-dot::after{
+    .lights-bar .dot::after{
       content:"";
       position:absolute;
-      inset:-14px;
+      inset:-12px;
       border-radius: 999px;
       filter: blur(10px);
       opacity: .55;
-      background: radial-gradient(circle, rgba(255,255,255,.35), transparent 60%);
       mix-blend-mode: screen;
+      background: radial-gradient(circle, rgba(255,255,255,.35), transparent 60%);
     }
-    .light-dot.red{ background: rgba(var(--red), .92); box-shadow: 0 0 22px rgba(var(--red), .26), 0 0 46px rgba(var(--red), .12); }
-    .light-dot.amb{ background: rgba(var(--amber), .92); box-shadow: 0 0 22px rgba(var(--amber), .22), 0 0 46px rgba(var(--amber), .10); }
-    .light-dot.grn{ background: rgba(var(--green), .92); box-shadow: 0 0 22px rgba(var(--green), .22), 0 0 46px rgba(var(--green), .10); }
+    .dot.red   { background: rgba(var(--red), .92);   box-shadow: 0 0 22px rgba(var(--red), .28), 0 0 42px rgba(var(--red), .14); }
+    .dot.amber { background: rgba(var(--amber), .92); box-shadow: 0 0 22px rgba(var(--amber), .22), 0 0 42px rgba(var(--amber), .12); }
+    .dot.green { background: rgba(var(--green), .92); box-shadow: 0 0 22px rgba(var(--green), .26), 0 0 42px rgba(var(--green), .14); }
 
     .list{
       display:flex;
       flex-direction:column;
       gap: 14px;
-      margin-top: 8px;
+      margin-top: 12px;
     }
 
     .empty{
@@ -175,6 +153,7 @@
     }
     .empty b{ color: var(--text); }
 
+    /* Track */
     .track{
       position: relative;
       height: var(--track-h);
@@ -185,13 +164,12 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* tint: 전체 채움 X */
+    /* Tints (NOT full fill; short ambiance) */
     .tint{
       position:absolute;
       inset:0;
       opacity: 0;
       pointer-events:none;
-      transition: opacity .10s linear;
     }
     .tint.left{
       background: radial-gradient(520px 220px at 0% 55%, rgba(255,90,90,.22), transparent 66%);
@@ -199,101 +177,83 @@
     .tint.right{
       background: radial-gradient(520px 220px at 100% 55%, rgba(80,220,140,.22), transparent 66%);
     }
-    .tint.ambL{
-      background: radial-gradient(420px 190px at 0% 55%, rgba(255,170,70,.12), transparent 70%);
+    .tint.amberL{
+      background: radial-gradient(460px 200px at 0% 55%, rgba(255,170,70,.12), transparent 70%);
     }
-    .tint.ambR{
-      background: radial-gradient(420px 190px at 100% 55%, rgba(255,170,70,.12), transparent 70%);
+    .tint.amberR{
+      background: radial-gradient(460px 200px at 100% 55%, rgba(255,170,70,.12), transparent 70%);
     }
 
+    /* Click zones */
     .zone{
       position:absolute;
       top:0; bottom:0;
       z-index: 3;
       background: transparent;
+      cursor: pointer;
     }
     .zone.left{ left:0; width:34%; }
     .zone.center{ left:33%; width:34%; }
     .zone.right{ right:0; width:34%; }
 
-    /* ✅ pill: 상태에 따라 고정점이 달라짐 (red=left, yellow=center, green=right) */
+    /* Pill */
     .pill{
       position:absolute;
       top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateX(0px);
       height: var(--pill-h);
       min-width: var(--pill-minw);
       width: var(--pill-minw);
       border-radius: var(--pill-radius);
 
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-bd);
+
       display:flex;
       align-items:center;
       justify-content:center;
+      padding: 0 14px;
 
-      padding: 0 var(--pill-pad-x);
       user-select:none;
       -webkit-user-select:none;
-      touch-action: manipulation;
+      touch-action: pan-y;
 
-      /* default look */
-      background: rgba(230,235,245,var(--default-pill-alpha));
-      border: var(--pill-bd) solid rgba(255,255,255,var(--default-pill-bd-alpha));
-
-      will-change: left, right, width, background, border-color, transform;
-      transition:
-        left var(--move-ms) cubic-bezier(.2,.9,.25,1),
-        right var(--move-ms) cubic-bezier(.2,.9,.25,1),
-        width 220ms ease,
-        background 120ms linear,
-        border-color 120ms linear,
-        transform 180ms cubic-bezier(.2,.9,.25,1);
-
+      /* width는 부드럽게, transform은 JS가 프레임별 제어(연속 tint/색상) */
+      transition: width .22s ease, opacity .12s ease;
+      will-change: transform, width, background, border-color;
       z-index: 4;
-      overflow: hidden;
 
-      pointer-events: none; /* ✅ pill 클릭 제거(영역 클릭만) */
-    }
-
-    /* red: 왼쪽 고정 */
-    .pill.pos-left{
-      left: var(--edge-pad);
-      right: auto;
-      transform: translateY(-50%);
-    }
-
-    /* yellow: 중앙 정렬 */
-    .pill.pos-center{
-      left: 50%;
-      right: auto;
-      transform: translate(-50%, -50%);
-    }
-
-    /* green: 오른쪽 고정 */
-    .pill.pos-right{
-      right: var(--edge-pad);
-      left: auto;
-      transform: translateY(-50%);
+      overflow: visible; /* 텍스트는 잘리지 않게 */
     }
 
     .pill-text{
       display:block;
-      width:100%;
-      text-align:center;  /* ✅ 텍스트는 항상 중앙 정렬 */
+      width: 100%;
+      text-align:center;
+
+      /* 절대 말줄임/줄바꿈/자르기 금지 */
       white-space: nowrap;
       overflow: visible;
       text-overflow: clip;
+
       font-weight: 900;
       letter-spacing: -.2px;
       color: rgba(255,255,255,.92);
       font-size: 15px;
-      transition: opacity 120ms ease;
-      pointer-events: none;
+
+      transition: opacity .12s ease;
+      pointer-events:none;
     }
+
+    /* meaning style */
     .pill.is-meaning .pill-text{
       font-weight: 600;
       color: rgba(255,255,255,.78);
       font-size: 14px;
     }
 
+    /* Footer */
     .footer{
       position: fixed;
       left:0; right:0; bottom:0;
@@ -317,6 +277,7 @@
       margin: 0 auto;
     }
 
+    /* Shoelace tweaks */
     sl-dialog::part(panel){
       border-radius: 18px;
       border: 1px solid rgba(255,255,255,.12);
@@ -344,13 +305,16 @@
     .btn-row sl-button{ flex: 1 1 0; }
     .btn-row sl-button::part(base){ width: 100%; }
 
+    /* hidden measurer */
     .measure{
-      position:absolute;
-      left:-9999px;
-      top:-9999px;
-      visibility:hidden;
-      white-space:nowrap;
-      letter-spacing:-.2px;
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      visibility: hidden;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.2px;
     }
   </style>
 </head>
@@ -369,10 +333,11 @@
       <sl-button id="btnCharge" variant="primary">충전하기</sl-button>
     </div>
 
-    <div class="lights-bar" aria-label="신호등">
-      <span class="light-dot red" aria-hidden="true"></span>
-      <span class="light-dot amb" aria-hidden="true"></span>
-      <span class="light-dot grn" aria-hidden="true"></span>
+    <!-- ✅ 라이트는 여기서 한 번만 고정 표시 -->
+    <div class="lights-bar" aria-hidden="true">
+      <div class="dot red"></div>
+      <div class="dot amber"></div>
+      <div class="dot green"></div>
     </div>
 
     <div id="emptyState" class="empty" style="display:none;">
@@ -389,6 +354,7 @@
     </div>
   </footer>
 
+  <!-- Charge dialog -->
   <sl-dialog id="dlgCharge" label="충전하기">
     <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
     <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
@@ -403,13 +369,18 @@
 
   <script>
   /* =========================================================
-    Rebuild v1.2
-    - ✅ yellow만 중앙정렬, red/green은 edge 고정 (centerX 계산 제거)
-    - ✅ 잔상/튐 제거(토큰으로 이전 애니/타이머 무효화)
-    - ✅ pill 클릭 없음(영역 클릭만)
+    Signal Vocab - Rebuild (Zones only + width anchor correction)
+    - default -> first touch => red/yellow/green, no return to default
+    - zone tap: move + show meaning (word->meaning->word)
+    - NO pill click handler
+    - continuous tint + pill color during move
+    - width change anchor fix by ΔW/2 (red/green)
   ========================================================= */
 
-  const LS_KEY = "signal_vocab_rebuild_v1_2";
+  /* =========================
+     Storage / State
+  ========================= */
+  const LS_KEY = "signal_vocab_rebuild_v1";
   const todayKey = (() => {
     const d = new Date();
     const y = d.getFullYear();
@@ -418,33 +389,33 @@
     return `${y}-${m}-${day}`;
   })();
 
-  function loadState(){
-    try{
+  function loadState() {
+    try {
       const raw = localStorage.getItem(LS_KEY);
-      if(!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+      if (!raw) return { day: todayKey, chargeUsed: 0, words: [] };
       const s = JSON.parse(raw);
-      if(s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
+      if (s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
       return {
         day: s.day || todayKey,
         chargeUsed: Number(s.chargeUsed || 0),
         words: Array.isArray(s.words) ? s.words : []
       };
-    }catch(e){
+    } catch (e) {
       return { day: todayKey, chargeUsed: 0, words: [] };
     }
   }
-  function saveState(state){
+  function saveState(state) {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
   }
 
-  function makeDummyWords(n){
+  function makeDummyWords(n) {
     const pool = [
-      ["abandon", "버리다, 포기하다"],
-      ["accurate", "정확한"],
+      ["abandonddd", "버리다, 포기하다dddddddd"],
+      ["accuratedddddddddd", "정확한"],
       ["benevolent", "자비로운, 선의의"],
       ["consequence", "결과, 영향"],
       ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다, ㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇ"],
+      ["elaborate", "정교한, 상세히 설명하다, ㅇㄹㅇㄹㅇㄹㅇㄹㅇ"],
       ["friction", "마찰, 충돌"],
       ["gratitude", "감사"],
       ["hesitate", "망설이다"],
@@ -452,22 +423,23 @@
     ];
     const out = [];
     const base = Date.now().toString(36);
-    for(let i=0;i<n;i++){
-      const pick = pool[Math.floor(Math.random()*pool.length)];
+    for (let i = 0; i < n; i++) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       out.push({
-        id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
+        id: `${base}-${i}-${Math.random().toString(16).slice(2, 8)}`,
         word: pick[0],
         meaning: pick[1],
-        status: "default", // default | red | yellow | green
-        touched: false
+        status: "default" // default | red | yellow | green
       });
     }
     return out;
   }
 
+  /* =========================
+     UI refs
+  ========================= */
   const toast = document.getElementById("toast");
   const toastText = document.getElementById("toastText");
-  function showToast(msg){ toastText.textContent = msg; toast.toast(); }
 
   const btnCharge = document.getElementById("btnCharge");
   const dlgCharge = document.getElementById("dlgCharge");
@@ -479,7 +451,12 @@
   const emptyState = document.getElementById("emptyState");
   const measurer = document.getElementById("measurer");
 
-  function escapeHtml(s){
+  function showToast(msg) {
+    toastText.textContent = msg;
+    toast.toast();
+  }
+
+  function escapeHtml(s) {
     return String(s)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -488,108 +465,101 @@
       .replaceAll("'", "&#039;");
   }
 
-  const RGB_RED   = [255, 90, 90];
-  const RGB_AMBER = [255, 170, 70];
-  const RGB_GREEN = [80, 220, 140];
-
+  /* =========================
+     Motion / color helpers
+  ========================= */
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
   function lerp(a,b,t){ return a + (b-a)*t; }
   function easeInOutCubic(t){
     t = clamp01(t);
     return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
   }
-  function mix3(p){
-    let rgb;
+  function getVarMs(name, fallback){
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if(!v) return fallback;
+    if(v.endsWith("ms")) return parseFloat(v);
+    if(v.endsWith("s")) return parseFloat(v) * 1000;
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  const RGB_RED   = [255, 90, 90];
+  const RGB_GREEN = [80, 220, 140];
+  const RGB_AMBER = [255, 170, 70];
+
+  function setPillColorByProgress(p, pill){
+    // 3-stop mix: red <-> amber <-> green
+    let rgb, a = 0.30, bdA = 0.32;
     if(p <= 0.5){
       const t = p / 0.5;
       rgb = [
         Math.round(lerp(RGB_RED[0], RGB_AMBER[0], t)),
         Math.round(lerp(RGB_RED[1], RGB_AMBER[1], t)),
-        Math.round(lerp(RGB_RED[2], RGB_AMBER[2], t))
+        Math.round(lerp(RGB_RED[2], RGB_AMBER[2], t)),
       ];
     }else{
       const t = (p - 0.5) / 0.5;
       rgb = [
         Math.round(lerp(RGB_AMBER[0], RGB_GREEN[0], t)),
         Math.round(lerp(RGB_AMBER[1], RGB_GREEN[1], t)),
-        Math.round(lerp(RGB_AMBER[2], RGB_GREEN[2], t))
+        Math.round(lerp(RGB_AMBER[2], RGB_GREEN[2], t)),
       ];
     }
-    return rgb;
+    pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+    pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${bdA})`;
   }
 
-  function getCSSNum(varName, fallback){
-    const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : fallback;
+  function setTintsByProgress(p, tintL, tintR, tintAL, tintAR){
+    // NOT full fill: just ambiance. Keep subtle.
+    const redI = clamp01(1 - (p / 0.5));           // high at left
+    const greenI = clamp01((p - 0.5) / 0.5);       // high at right
+    const yellowI = clamp01(1 - Math.abs(p - 0.5) / 0.5); // peak at center
+
+    tintL.style.opacity  = String(redI * 0.90);
+    tintR.style.opacity  = String(greenI * 0.90);
+    tintAL.style.opacity = String(yellowI * 0.55);
+    tintAR.style.opacity = String(yellowI * 0.55);
   }
 
+  /* =========================
+     Measure / target width
+     - no ellipsis / no wrap / no clip
+     - width = max(min, measured + padding)
+  ========================= */
   function measureTextPx(text, isMeaning){
     measurer.style.fontSize = isMeaning ? "14px" : "15px";
     measurer.style.fontWeight = isMeaning ? "600" : "900";
+    measurer.style.letterSpacing = "-.2px";
     measurer.textContent = text || "";
-    return Math.ceil(measurer.getBoundingClientRect().width);
+    return measurer.getBoundingClientRect().width;
   }
 
-  function setPillWidthToText(pillEl, text, isMeaning){
-    const minW = getCSSNum("--pill-minw", 140);
-    const padX = getCSSNum("--pill-pad-x", 14);
-    const bd = getCSSNum("--pill-bd", 1);
+  function computeTargetWidth(trackW, text, isMeaning){
+    const minW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-minw")) || 140;
 
-    const tW = measureTextPx(text, isMeaning);
-    const w = Math.max(minW, tW + (padX*2) + (bd*2) + 6);
+    // pill 내부 padding(좌우 14*2) + border 여유
+    const innerPad = 28 + 18; // 안전 여유 포함
+    const textW = measureTextPx(text, isMeaning);
+    const want = Math.ceil(textW + innerPad);
 
-    pillEl.style.width = w + "px";
-    return w;
+    // track 안에서 너무 커지지 않게 상한(좌우 여백 20)
+    const maxW = Math.max(minW, trackW - 20);
+    return Math.min(maxW, Math.max(minW, want));
   }
 
-  function setDefaultVisual(pill, tintL, tintR, tintAL, tintAR){
-    pill.style.background = "";
-    pill.style.borderColor = "";
-    tintL.style.opacity = "0";
-    tintR.style.opacity = "0";
-    tintAL.style.opacity = "0";
-    tintAR.style.opacity = "0";
-  }
+  /* =========================
+     Track builder / controller
+  ========================= */
+  function buildTrackRow(wordObj, index, state){
+    const track = document.createElement("div");
+    track.className = "track";
+    track.dataset.index = String(index);
 
-  function applyContinuousVisual(p, pill, tintL, tintR, tintAL, tintAR){
-    const rgb = mix3(p);
-    pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.30)`;
-    pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
-
-    const redI = clamp01((0.5 - p) / 0.5);
-    const greenI = clamp01((p - 0.5) / 0.5);
-    const yellowI = 1 - clamp01(Math.abs(p - 0.5) / 0.5);
-
-    tintL.style.opacity  = String(Math.min(1, redI * 0.85));
-    tintR.style.opacity  = String(Math.min(1, greenI * 0.85));
-    tintAL.style.opacity = String(Math.min(1, yellowI * 0.55));
-    tintAR.style.opacity = String(Math.min(1, yellowI * 0.55));
-  }
-
-  function statusToP(st){
-    if(st === "red") return 0;
-    if(st === "green") return 1;
-    if(st === "yellow") return 0.5;
-    return 0.5; // default는 중앙(비주얼은 default 처리)
-  }
-  function statusToPosClass(st){
-    if(st === "red") return "pos-left";
-    if(st === "green") return "pos-right";
-    // yellow/default
-    return "pos-center";
-  }
-
-  function buildTrackRow(wordObj, state){
-    const el = document.createElement("div");
-    el.className = "track";
-    el.dataset.id = wordObj.id;
-
-    el.innerHTML = `
+    track.innerHTML = `
       <div class="tint left"></div>
       <div class="tint right"></div>
-      <div class="tint ambL"></div>
-      <div class="tint ambR"></div>
+      <div class="tint amberL"></div>
+      <div class="tint amberR"></div>
 
       <div class="zone left" aria-label="왼쪽(RED)"></div>
       <div class="zone center" aria-label="가운데(YELLOW)"></div>
@@ -600,101 +570,207 @@
       </div>
     `;
 
-    const tintL  = el.querySelector(".tint.left");
-    const tintR  = el.querySelector(".tint.right");
-    const tintAL = el.querySelector(".tint.ambL");
-    const tintAR = el.querySelector(".tint.ambR");
+    const tintL  = track.querySelector(".tint.left");
+    const tintR  = track.querySelector(".tint.right");
+    const tintAL = track.querySelector(".tint.amberL");
+    const tintAR = track.querySelector(".tint.amberR");
 
-    const zoneL  = el.querySelector(".zone.left");
-    const zoneC  = el.querySelector(".zone.center");
-    const zoneR  = el.querySelector(".zone.right");
+    const zoneL = track.querySelector(".zone.left");
+    const zoneC = track.querySelector(".zone.center");
+    const zoneR = track.querySelector(".zone.right");
 
-    const pill   = el.querySelector(".pill");
-    const txt    = el.querySelector(".pill-text");
+    const pill = track.querySelector(".pill");
+    const pillTxt = track.querySelector(".pill-text");
 
-    let peekToken = 0;
-    let moveToken = 0;
-    let curP = statusToP(wordObj.status || "default");
+    // Controller state
+    let status = wordObj.status || "default"; // default/red/yellow/green
+    let mode = "word"; // "word" | "meaning"
+    let curX = 0;      // translateX px (relative to center)
+    let anim = null;   // current move animation
+    let token = 0;     // cancels pending peek timelines
 
-    function applyPosByStatus(st){
-      pill.classList.remove("pos-left","pos-center","pos-right");
-      pill.classList.add(statusToPosClass(st));
+    function getTrackW(){
+      return track.getBoundingClientRect().width || 320;
     }
 
-    function moveToStatus(nextStatus){
-      const token = ++moveToken;
+    // anchor positions (based on current width)
+    function centerXForStatus(st, curWidth){
+      const trackW = getTrackW();
+      const edgePad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lr-pad")) || 12;
+      const half = trackW / 2;
 
-      const fromP = curP;
-      const toP = statusToP(nextStatus);
-      const moveMs = getCSSNum("--move-ms", 360);
+      if(st === "red"){
+        // left edge fixed at edgePad
+        return (edgePad + curWidth/2) - half;
+      }
+      if(st === "green"){
+        // right edge fixed at trackW - edgePad
+        return (trackW - edgePad - curWidth/2) - half;
+      }
+      // yellow or default: center
+      return 0;
+    }
+
+    // progress mapping (based on current width so color stays consistent)
+    function progress01FromX(x, curWidth){
+      const minX = centerXForStatus("red", curWidth);
+      const maxX = centerXForStatus("green", curWidth);
+      if(maxX === minX) return 0.5;
+      return clamp01((x - minX) / (maxX - minX));
+    }
+
+    function applyTransform(){
+      pill.style.transform = `translate(-50%, -50%) translateX(${curX}px)`;
+    }
+
+    function setDefaultVisual(){
+      // default: neutral pill, no tints
+      pill.style.background = "";
+      pill.style.borderColor = "";
+      tintL.style.opacity = "0";
+      tintR.style.opacity = "0";
+      tintAL.style.opacity = "0";
+      tintAR.style.opacity = "0";
+      applyTransform();
+    }
+
+    function applyContinuousVisual(){
+      const curW = parseFloat(getComputedStyle(pill).width) || 140;
+      const p = progress01FromX(curX, curW);
+      setPillColorByProgress(p, pill);
+      setTintsByProgress(p, tintL, tintR, tintAL, tintAR);
+    }
+
+    function stopMoveAnim(){
+      anim = null;
+    }
+
+    function animateMoveTo(targetX){
+      const moveMs = getVarMs("--move-ms", 360);
+      const fromX = curX;
+      const toX = targetX;
+
+      stopMoveAnim();
       const t0 = performance.now();
 
-      // ✅ 포지션은 즉시 클래스 변경(이동은 CSS transition으로)
-      applyPosByStatus(nextStatus === "default" ? "yellow" : nextStatus);
+      anim = { fromX, toX, t0, dur: moveMs };
 
       function step(now){
-        if(token !== moveToken) return;
-        const t = clamp01((now - t0)/moveMs);
+        if(!anim) return;
+        const t = clamp01((now - anim.t0) / anim.dur);
         const e = easeInOutCubic(t);
-        const p = lerp(fromP, toP, e);
-        curP = p;
+        curX = lerp(anim.fromX, anim.toX, e);
 
-        if(nextStatus === "default"){
-          setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
+        applyTransform();
+        // default는 색/틴트 없음
+        if(status === "default"){
+          // keep neutral
         }else{
-          applyContinuousVisual(p, pill, tintL, tintR, tintAL, tintAR);
+          applyContinuousVisual();
         }
 
         if(t < 1){
           requestAnimationFrame(step);
         }else{
-          // 끝 정리
-          if(nextStatus === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
-          else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
+          anim = null;
         }
       }
       requestAnimationFrame(step);
     }
 
-    function startPeek(){
-      const token = ++peekToken;
+    // width anchor correction (ΔW/2)
+    function applyWidthWithAnchor(nextW){
+      const prevW = parseFloat(getComputedStyle(pill).width) || nextW;
 
-      const inMs   = getCSSNum("--peek-in-ms", 120);
-      const holdMs = getCSSNum("--peek-hold-ms", 560);
-      const outMs  = getCSSNum("--peek-out-ms", 200);
+      // width set + x correction must happen in same tick to avoid drift
+      const dW = nextW - prevW;
+      if(status === "red"){
+        curX += dW / 2;        // keep left edge fixed
+        if(anim) anim.toX += dW / 2; // keep move target consistent during motion
+      }else if(status === "green"){
+        curX -= dW / 2;        // keep right edge fixed
+        if(anim) anim.toX -= dW / 2;
+      }
+      // yellow/default: no correction
 
-      const word = wordObj.word || "";
-      const meaning = wordObj.meaning || "";
+      pill.style.width = `${nextW}px`;
+      applyTransform();
+    }
 
-      // fade out
-      txt.style.opacity = "0";
+    function setMode(nextMode){
+      mode = nextMode;
+      if(mode === "meaning"){
+        pill.classList.add("is-meaning");
+      }else{
+        pill.classList.remove("is-meaning");
+      }
+    }
+
+    function cancelPeekNow(){
+      token++;
+      // reset text to word (safe)
+      setMode("word");
+      pillTxt.style.opacity = "1";
+      pillTxt.textContent = wordObj.word || "";
+      // reset width to word target
+      const w = computeTargetWidth(getTrackW(), pillTxt.textContent, false);
+      pill.style.width = `${w}px`;
+      // visuals
+      if(status === "default") setDefaultVisual();
+      else applyContinuousVisual();
+    }
+
+    function playMeaningPeek(){
+      // zone click always triggers this (even if same status)
+      const my = ++token;
+
+      const inMs   = getVarMs("--peek-in-ms", 90);
+      const holdMs = getVarMs("--peek-hold-ms", 520);
+      const outMs  = getVarMs("--peek-out-ms", 160);
+
+      const trackW = getTrackW();
+
+      // word target width (current)
+      const wordText = wordObj.word || "";
+      const meanText = wordObj.meaning || "";
+
+      const wordW = computeTargetWidth(trackW, wordText, false);
+      const meanW = computeTargetWidth(trackW, meanText, true);
+
+      // Ensure we're in word baseline first
+      setMode("word");
+      pillTxt.textContent = wordText;
+      pillTxt.style.opacity = "1";
+      applyWidthWithAnchor(wordW);
+
+      // fade out word
+      pillTxt.style.opacity = "0";
 
       setTimeout(()=>{
-        if(token !== peekToken) return;
+        if(my !== token) return;
 
-        pill.classList.add("is-meaning");
-        txt.textContent = meaning;
+        // swap to meaning + width change (anchor-correct)
+        setMode("meaning");
+        pillTxt.textContent = meanText;
+        applyWidthWithAnchor(meanW);
+        pillTxt.style.opacity = "1";
 
-        // ✅ width 변경 (pos-left/pos-right는 edge 고정이라 drift 불가)
-        setPillWidthToText(pill, meaning, true);
-
-        txt.style.opacity = "1";
-
+        // hold
         setTimeout(()=>{
-          if(token !== peekToken) return;
+          if(my !== token) return;
 
-          txt.style.opacity = "0";
+          // fade out meaning
+          pillTxt.style.opacity = "0";
 
           setTimeout(()=>{
-            if(token !== peekToken) return;
+            if(my !== token) return;
 
-            pill.classList.remove("is-meaning");
-            txt.textContent = word;
+            // back to word + width restore (anchor-correct)
+            setMode("word");
+            pillTxt.textContent = wordText;
+            applyWidthWithAnchor(wordW);
+            pillTxt.style.opacity = "1";
 
-            // ✅ word width 복원
-            setPillWidthToText(pill, word, false);
-
-            txt.style.opacity = "1";
           }, outMs);
 
         }, holdMs);
@@ -702,72 +778,95 @@
       }, inMs);
     }
 
-    function commitStatus(nextStatus){
-      const idx = state.words.findIndex(w => w.id === wordObj.id);
-      if(idx < 0) return;
-
-      const prev = state.words[idx].status || "default";
-
-      if(prev === "default"){
-        state.words[idx].touched = true;
+    function applyStatus(nextStatus){
+      // default는 첫 터치 이후 절대 복귀 불가
+      if(status !== "default" && nextStatus === "default"){
+        nextStatus = "yellow";
       }
-
-      // touched면 default 금지
-      if(state.words[idx].touched && nextStatus === "default"){
+      if(status === "default" && nextStatus === "default"){
         nextStatus = "yellow";
       }
 
-      state.words[idx].status = nextStatus;
+      // 상태 저장
+      status = nextStatus;
+      wordObj.status = nextStatus;
+      state.words[index].status = nextStatus;
       saveState(state);
 
-      wordObj.status = nextStatus;
-      wordObj.touched = !!state.words[idx].touched;
+      // 기존 타임라인 정리(잔상 방지)
+      cancelPeekNow();
+
+      // move target (based on current word width)
+      const curW = parseFloat(getComputedStyle(pill).width) || 140;
+      const targetX = centerXForStatus(status === "default" ? "yellow" : status, curW);
+
+      if(status === "default"){
+        curX = 0;
+        setDefaultVisual();
+      }else{
+        animateMoveTo(targetX);
+        // peek starts immediately (요구사항: 영역 터치하면 의미 표시)
+        playMeaningPeek();
+      }
     }
 
-    function hardResetEffects(){
-      peekToken++;
-      moveToken++;
+    // zones only (NO pill click)
+    zoneL.addEventListener("click", ()=> applyStatus(status === "default" ? "red" : "red"));
+    zoneC.addEventListener("click", ()=> applyStatus(status === "default" ? "yellow" : "yellow"));
+    zoneR.addEventListener("click", ()=> applyStatus(status === "default" ? "green" : "green"));
 
-      pill.classList.remove("is-meaning");
-      txt.textContent = wordObj.word || "";
-      txt.style.opacity = "1";
+    // init visuals
+    (function init(){
+      // baseline text/width
+      pillTxt.textContent = wordObj.word || "";
+      const w = computeTargetWidth(getTrackW(), pillTxt.textContent, false);
+      pill.style.width = `${w}px`;
 
-      setPillWidthToText(pill, wordObj.word || "", false);
+      // start x at status position
+      const st = status;
+      if(st === "default"){
+        curX = 0;
+        setDefaultVisual();
+      }else{
+        curX = centerXForStatus(st, w);
+        applyTransform();
+        applyContinuousVisual();
+      }
+    })();
 
-      const st = wordObj.status || "default";
-      applyPosByStatus(st === "default" ? "yellow" : st);
+    // resize handling: keep anchor consistent
+    let resizeT = null;
+    window.addEventListener("resize", ()=>{
+      clearTimeout(resizeT);
+      resizeT = setTimeout(()=>{
+        // On resize: recompute width targets for current mode/text
+        const trackW = getTrackW();
+        const isMeaning = (mode === "meaning");
+        const text = isMeaning ? (wordObj.meaning||"") : (wordObj.word||"");
+        const targetW = computeTargetWidth(trackW, text, isMeaning);
 
-      if(st === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
-      else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
-    }
+        // apply width with anchor correction (safe)
+        applyWidthWithAnchor(targetW);
 
-    function onZoneClick(nextStatus){
-      hardResetEffects();
-      commitStatus(nextStatus);
-      moveToStatus(nextStatus);
-      startPeek();
-    }
+        // recompute position "absolute anchor" for current status
+        // (use current width, but DO NOT jump: animate a tiny correction)
+        if(status !== "default"){
+          const curW = parseFloat(getComputedStyle(pill).width) || targetW;
+          const wantX = centerXForStatus(status, curW);
+          animateMoveTo(wantX);
+        }else{
+          curX = 0;
+          setDefaultVisual();
+        }
+      }, 120);
+    }, { passive:true });
 
-    zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("red"); });
-    zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("yellow"); });
-    zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("green"); });
-
-    // 초기: word width + status 반영
-    requestAnimationFrame(()=>{
-      setPillWidthToText(pill, wordObj.word || "", false);
-
-      const st = wordObj.status || "default";
-      curP = statusToP(st);
-
-      applyPosByStatus(st === "default" ? "yellow" : st);
-
-      if(st === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
-      else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
-    });
-
-    return el;
+    return track;
   }
 
+  /* =========================
+     Render
+  ========================= */
   let state = loadState();
 
   function render(){
@@ -784,22 +883,25 @@
     }
     emptyState.style.display = "none";
 
-    for(const w of state.words){
-      listEl.appendChild(buildTrackRow(w, state));
-    }
+    state.words.forEach((w, idx)=>{
+      listEl.appendChild(buildTrackRow(w, idx, state));
+    });
   }
 
-  // Charge modal
-  btnCharge.addEventListener("click", ()=>{
+  /* =========================
+     Charge modal
+  ========================= */
+  btnCharge.addEventListener("click", () => {
     state = loadState();
     const remain = Math.max(0, 3 - state.chargeUsed);
     remainText.textContent = `${remain}/3`;
     dlgChargeDo.disabled = remain <= 0;
     dlgCharge.show();
   });
-  dlgChargeClose.addEventListener("click", ()=> dlgCharge.hide());
 
-  dlgChargeDo.addEventListener("click", ()=>{
+  dlgChargeClose.addEventListener("click", () => dlgCharge.hide());
+
+  dlgChargeDo.addEventListener("click", () => {
     state = loadState();
     const remain = 3 - state.chargeUsed;
     if(remain <= 0){
@@ -811,12 +913,16 @@
     state.chargeUsed += 1;
     saveState(state);
     dlgCharge.hide();
+
     render();
     showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
   });
 
+  /* =========================
+     Boot
+  ========================= */
   render();
-  requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
+  requestAnimationFrame(() => document.documentElement.classList.add("ready"));
   </script>
 </body>
 </html>
