@@ -1,1304 +1,253 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>신호등보카 (Slide)</title>
+<script>
+/* =========================================================
+  Signal Vocab - Step 1: Minimal JS Core
+  - HTML/CSS 그대로
+  - Drag/Peek/Boot 애니메이션 제거
+  - 충전(10개, 하루 3회) + 상태 저장/렌더 + zone 클릭 상태 변경만
+========================================================= */
 
-  <!-- Shoelace (CDN) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/shoelace.js"></script>
+/* =========================
+   Storage / Day key
+========================= */
+const LS_KEY = "signal_vocab_v1";
+const todayKey = (() => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+})();
 
-  <style>
-    :root{
-      --app-max: 520px;
+function loadState() {
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+    const s = JSON.parse(raw);
+    // 날짜 바뀌면 초기화(Step1 정책 유지)
+    if(s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
 
-      /* ✅ Boot motion controls */
-      --boot-hold-ms: 600ms;
-      --boot-move-ms: 2600ms;
-      --boot-ease: cubic-bezier(.2,.9,.25,1);
-
-      /* ✅ Peek controls */
-      --peek-in-ms: 120ms;
-      --peek-hold-ms: 520ms;
-      --peek-out-ms: 260ms;
-
-      /* Theme */
-      --bg0: #070a10;
-      --bg1: #0b0f14;
-
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.58);
-
-      --track: rgba(255,255,255,.06);
-      --line: rgba(255,255,255,.10);
-
-      --radius: 18px;
-      --pill-radius: 999px;
-
-      --track-h: 72px;
-      --pill-h: 44px;
-      --pill-w: 140px;
-
-      --pad: 12px;
-      --lr-pad: 12px;
-
-      /* Lights */
-      --red:   255, 90,  90;
-      --green:  80, 220, 140;
-      --amber: 255, 170,  70;
-
-      /* ✅ unknown pill transparency (yellow light recognition)
-         - "너무 투명" 이슈로 살짝 올림 */
-      --unknown-pill-alpha: .20;
-      --unknown-pill-bd-alpha: .13;
-    }
-
-    *{ box-sizing: border-box; }
-
-    html{ background: var(--bg0); }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Helvetica Neue", sans-serif;
-      color: var(--text);
-      min-height: 100svh;
-      background: transparent;
-    }
-    body::before{
-      content:"";
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      pointer-events: none;
-      background:
-        radial-gradient(1200px 800px at 50% -200px, rgba(80,130,255,.18), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1) 40%, var(--bg0));
-      transform: translateZ(0);
-    }
-
-    sl-dialog:not(:defined){ display:none !important; }
-    sl-alert:not(:defined){ display:none !important; }
-    sl-button:not(:defined){ visibility:hidden; }
-
-    .app{
-      max-width: var(--app-max);
-      margin: 0 auto;
-      padding: 18px var(--pad) 120px;
-    }
-
-    .header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-      margin: 6px 0 12px;
-    }
-    .header h1{
-      margin: 0;
-      font-size: 28px;
-      letter-spacing: -.4px;
-      font-weight: 900;
-      line-height: 1.1;
-    }
-
-    .toast-wrap{
-      position: sticky;
-      top: 10px;
-      z-index: 999;
-      padding: 0 var(--pad);
-    }
-    .toast-wrap sl-alert{
-      max-width: var(--app-max);
-      margin: 0 auto;
-      border-radius: 14px;
-    }
-
-    .list{
-      display:flex;
-      flex-direction:column;
-      gap: 14px;
-      margin-top: 12px;
-    }
-
-    .empty{
-      margin-top: 18px;
-      padding: 18px;
-      border: 1px dashed rgba(255,255,255,.16);
-      border-radius: 16px;
-      color: var(--muted);
-      text-align:center;
-      line-height: 1.6;
-    }
-    .empty b{ color: var(--text); }
-
-    /* Track */
-    .track{
-      position: relative;
-      height: var(--track-h);
-      border-radius: var(--radius);
-      background: var(--track);
-      border: 1px solid var(--line);
-      overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
-      transition: opacity .16s ease, transform .16s ease;
-    }
-    .track.preboot{ opacity: 0; transform: translateY(2px); }
-
-    /* Continuous tints (red/green + amber ambiance) */
-    .tint{
-      position:absolute;
-      inset:0;
-      opacity: 0;
-      pointer-events:none;
-      transition: opacity .10s linear;
-    }
-    .tint.left{
-      background: radial-gradient(640px 260px at 0% 55%, rgba(255,90,90,.22), transparent 62%);
-    }
-    .tint.right{
-      background: radial-gradient(640px 260px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
-    }
-    /* ✅ amber tint는 "끝까지"가 아니라 은은+짧게 */
-    .tint.amberL{
-      background: radial-gradient(520px 220px at 0% 55%, rgba(255,170,70,.12), transparent 66%);
-    }
-    .tint.amberR{
-      background: radial-gradient(520px 220px at 100% 55%, rgba(255,170,70,.12), transparent 66%);
-    }
-
-    /* Lights layer */
-    .lights{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      z-index: 1;
-    }
-    .light{
-      position:absolute;
-      top: 50%;
-      width: 16px;
-      height: 16px;
-      border-radius: 999px;
-      transform: translateY(-50%);
-      opacity: .55; /* overridden inline */
-      filter: saturate(1.05);
-    }
-    .light.left{ left: var(--lr-pad); }
-    .light.right{ right: var(--lr-pad); }
-    /* center amber "under pill" */
-    .light.center{
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 18px;
-      height: 18px;
-    }
-
-    .light::after{
-      content:"";
-      position:absolute;
-      inset:-18px;
-      border-radius: 999px;
-      opacity: .65;
-      filter: blur(10px);
-      background: radial-gradient(circle, rgba(255,255,255,.35), transparent 60%);
-      mix-blend-mode: screen;
-    }
-
-    /* Meaning slots */
-    .meaning-slot{
-      position:absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 46%;
-      padding: 0 var(--lr-pad);
-      pointer-events:none;
-
-      opacity: 0;
-      transition: opacity .10s linear, transform .16s ease;
-
-      /* ✅ 말줄임표 제거 */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: clip;
-
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: -.2px;
-      color: rgba(255,255,255,.78);
-      z-index: 2;
-    }
-    .meaning-left{ left: 0; text-align:left; }
-    .meaning-right{ right: 0; text-align:right; }
-
-    /* Click zones */
-    .zone{
-      position:absolute;
-      top:0; bottom:0;
-      z-index: 3;
-      background: transparent;
-    }
-    .zone.left{ left:0; width:34%; }
-    .zone.center{ left:33%; width:34%; }
-    .zone.right{ right:0; width:34%; }
-
-    /* Pill (center-anchored so width expands symmetrically) */
-    .pill{
-      position:absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) translateX(0px);
-      height: var(--pill-h);
-      width: var(--pill-w);
-      border-radius: var(--pill-radius);
-
-      background: rgba(230,235,245,.22);
-      border: 1px solid rgba(255,255,255,.14);
-
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 0 14px;
-
-      user-select:none;
-      -webkit-user-select:none;
-
-      touch-action: pan-y;
-
-      will-change: transform, background, border-color, width;
-      transition:
-        transform .18s cubic-bezier(.2,.9,.25,1),
-        background .10s linear,
-        border-color .10s linear,
-        width .22s ease;
-
-      z-index: 4;
-
-      /* ✅ 말줄임표 제거 */
-      overflow: hidden;
-    }
-
-    .pill.dragging{
-      transition:none !important;
-      touch-action: none;
-    }
-    .pill.booting{ transition: none !important; }
-
-    /* Text inside pill */
-    .pill-text{
-      display:block;
-      width: 100%;
-      text-align:center;
-
-      /* ✅ 말줄임표 제거 */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: clip;
-
-      /* default(word) */
-      font-weight: 900;
-      letter-spacing: -.2px;
-      color: rgba(255,255,255,.92);
-
-      /* ✅ 기본 폰트 크기 명시 (yellow 폰트 불일치 방지) */
-      font-size: 15px;
-
-      transition: opacity .12s ease;
-    }
-
-    /* meaning style inside pill (yellow peek) */
-    .pill.is-meaning .pill-text{
-      font-weight: 600;
-      color: rgba(255,255,255,.78);
-      font-size: 14px; /* ✅ red/green meaning 느낌과 통일 */
-    }
-
-    /* Unknown pill more transparent to reveal center amber light */
-    .track.is-unknown .pill{
-      background: rgba(230,235,245,var(--unknown-pill-alpha));
-      border-color: rgba(255,255,255,var(--unknown-pill-bd-alpha));
-    }
-
-    /* Footer */
-    .footer{
-      position: fixed;
-      left:0; right:0; bottom:0;
-      padding: 12px var(--pad) calc(12px + env(safe-area-inset-bottom));
-      background: linear-gradient(180deg, transparent, rgba(0,0,0,.35) 25%, rgba(0,0,0,.55));
-      backdrop-filter: blur(10px);
-      z-index: 50;
-
-      opacity: 0;
-      transform: translateY(8px);
-      pointer-events:none;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    html.ready .footer{
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events:auto;
-    }
-    .footer-inner{
-      max-width: var(--app-max);
-      margin: 0 auto;
-    }
-
-    /* Shoelace tweaks */
-    sl-dialog::part(panel){
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(20,24,32,.96);
-      color: var(--text);
-    }
-    sl-dialog::part(title){
-      font-weight: 900;
-      letter-spacing: -.2px;
-    }
-    sl-button::part(base){ border-radius: 14px; }
-
-    .charge-msg{
-      font-size: 14px;
-      color: rgba(255,255,255,.86);
-      line-height: 1.5;
-      margin-bottom: 10px;
-    }
-    .charge-remain{
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-    .btn-row{ display:flex; gap: 10px; }
-    .btn-row sl-button{ flex: 1 1 0; }
-    .btn-row sl-button::part(base){ width: 100%; }
-
-    /* hidden measurer */
-    .measure{
-      position: absolute;
-      left: -9999px;
-      top: -9999px;
-      visibility: hidden;
-      white-space: nowrap;
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: -.2px;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="toast-wrap" aria-live="polite" aria-atomic="true">
-    <sl-alert id="toast" variant="primary" duration="2200" closable>
-      <sl-icon slot="icon" name="info-circle"></sl-icon>
-      <span id="toastText">안내</span>
-    </sl-alert>
-  </div>
-
-  <main class="app">
-    <div class="header">
-      <h1>오늘의 단어</h1>
-      <sl-button id="btnCharge" variant="primary">충전하기</sl-button>
-    </div>
-
-    <div id="emptyState" class="empty" style="display:none;">
-      아직 오늘의 단어가 <b>0개</b>예요.<br>
-      상단의 <b>충전하기</b>로 10개씩 추가해 주세요.
-    </div>
-
-    <div id="list" class="list"></div>
-  </main>
-
-  <footer class="footer">
-    <div class="footer-inner">
-      <sl-button id="ctaSubmit" variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 2~)</sl-button>
-    </div>
-  </footer>
-
-  <!-- Charge dialog -->
-  <sl-dialog id="dlgCharge" label="충전하기">
-    <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
-    <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
-
-    <div class="btn-row">
-      <sl-button id="dlgChargeDo" variant="primary">충전하기</sl-button>
-      <sl-button id="dlgChargeClose" variant="default" outline>닫기</sl-button>
-    </div>
-  </sl-dialog>
-
-  <span id="measurer" class="measure"></span>
-
-  <script>
-  /* =========================
-     Storage / State
-  ========================= */
-  const LS_KEY = "signal_vocab_v1"; // ✅ 새 키(혼선 방지)
-  const todayKey = (() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  })();
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return { day: todayKey, chargeUsed: 0, words: [] };
-      const s = JSON.parse(raw);
-      if (s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
-      return {
-        day: s.day || todayKey,
-        chargeUsed: Number(s.chargeUsed || 0),
-        words: Array.isArray(s.words) ? s.words : []
-      };
-    } catch (e) {
-      return { day: todayKey, chargeUsed: 0, words: [] };
-    }
+    return {
+      day: s.day || todayKey,
+      chargeUsed: Number(s.chargeUsed || 0),
+      words: Array.isArray(s.words) ? s.words : []
+    };
+  }catch(e){
+    return { day: todayKey, chargeUsed: 0, words: [] };
   }
-  function saveState(state) {
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-  }
-
-  function makeDummyWords(n) {
-    const pool = [
-      ["abandon", "버리다, 포기하다"],
-      ["accurate", "정확한"],
-      ["benevolent", "자비로운, 선의의"],
-      ["consequence", "결과, 영향"],
-      ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다"],
-      ["friction", "마찰, 충돌"],
-      ["gratitude", "감사"],
-      ["hesitate", "망설이다"],
-      ["inevitable", "피할 수 없는"]
-    ];
-    const out = [];
-    const base = Date.now().toString(36);
-    for (let i = 0; i < n; i++) {
-      const pick = pool[Math.floor(Math.random() * pool.length)];
-      out.push({
-        id: `${base}-${i}-${Math.random().toString(16).slice(2, 8)}`,
-        word: pick[0],
-        meaning: pick[1],
-        status: "unknown",      // unknown | red | yellow | green
-        touched: false
-      });
-    }
-    return out;
-  }
-
-  /* =========================
-     UI refs
-  ========================= */
-  const toast = document.getElementById("toast");
-  const toastText = document.getElementById("toastText");
-
-  const btnCharge = document.getElementById("btnCharge");
-  const dlgCharge = document.getElementById("dlgCharge");
-  const dlgChargeDo = document.getElementById("dlgChargeDo");
-  const dlgChargeClose = document.getElementById("dlgChargeClose");
-  const remainText = document.getElementById("remainText");
-
-  const listEl = document.getElementById("list");
-  const emptyState = document.getElementById("emptyState");
-  const measurer = document.getElementById("measurer");
-
-  function showToast(msg) {
-    toastText.textContent = msg;
-    toast.toast();
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  /* =========================
-     Helpers
-  ========================= */
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
-  function smoothstep(t) {
-    t = clamp01(t);
-    return t * t * (3 - 2 * t);
-  }
-  function easeInOutCubic(t){
-    t = clamp01(t);
-    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
-  }
-
-  function parseMs(str, fallback) {
-    const s = String(str || "").trim();
-    if (!s) return fallback;
-    if (s.endsWith("ms")) return parseFloat(s);
-    if (s.endsWith("s")) return parseFloat(s) * 1000;
-    const n = parseFloat(s);
-    return Number.isFinite(n) ? n : fallback;
-  }
-  function getVarMs(name, fallback) {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
-    return parseMs(v, fallback);
-  }
-
-  function rgba(rgb, a){
-    return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-  }
-
-  const RGB_RED   = [255, 90, 90];
-  const RGB_GREEN = [80, 220, 140];
-  const RGB_AMBER = [255, 170, 70];
-
-  /* ✅ 텍스트 fit(말줄임표 금지 대응)
-     - "…"를 쓰지 않고, 필요 시 폰트를 줄여서 최대한 한 줄에 맞춘다 */
-  function fitText(el, text, opts){
-    const maxPx = opts.maxPx;
-    const base = opts.base || 15;
-    const min = opts.min || 11;
-    const weight = opts.weight || 900;
-    const letter = opts.letter || "-.2px";
-
-    measurer.style.fontWeight = String(weight);
-    measurer.style.letterSpacing = String(letter);
-
-    let size = base;
-    el.style.fontSize = size + "px";
-    measurer.style.fontSize = size + "px";
-
-    measurer.textContent = text || "";
-    while (size > min && measurer.getBoundingClientRect().width > maxPx){
-      size -= 1;
-      el.style.fontSize = size + "px";
-      measurer.style.fontSize = size + "px";
-    }
-    // 마지막으로 적용
-    el.style.fontSize = size + "px";
-  }
-
-  /* =========================
-     Track builder
-  ========================= */
-  function buildTrackRow(wordObj, index, state) {
-    const el = document.createElement("div");
-    el.className = "track is-unknown preboot";
-    el.dataset.index = String(index);
-
-    el.innerHTML = `
-      <div class="tint left"></div>
-      <div class="tint right"></div>
-      <div class="tint amberL"></div>
-      <div class="tint amberR"></div>
-
-      <div class="lights">
-        <div class="light left"></div>
-        <div class="light center"></div>
-        <div class="light right"></div>
-      </div>
-
-      <div class="meaning-slot meaning-left"></div>
-      <div class="meaning-slot meaning-right"></div>
-
-      <div class="zone left" aria-label="왼쪽(RED)"></div>
-      <div class="zone center" aria-label="가운데(YELLOW)"></div>
-      <div class="zone right" aria-label="오른쪽(GREEN)"></div>
-
-      <div class="pill" role="button" aria-label="단어 필">
-        <span class="pill-text">${escapeHtml(wordObj.word)}</span>
-      </div>
-    `;
-
-    const tintL   = el.querySelector(".tint.left");
-    const tintR   = el.querySelector(".tint.right");
-    const tintAL  = el.querySelector(".tint.amberL");
-    const tintAR  = el.querySelector(".tint.amberR");
-
-    const lightL  = el.querySelector(".light.left");
-    const lightC  = el.querySelector(".light.center");
-    const lightR  = el.querySelector(".light.right");
-
-    const pill    = el.querySelector(".pill");
-    const pillTxt = el.querySelector(".pill-text");
-
-    const meanL   = el.querySelector(".meaning-left");
-    const meanR   = el.querySelector(".meaning-right");
-
-    const zoneL   = el.querySelector(".zone.left");
-    const zoneC   = el.querySelector(".zone.center");
-    const zoneR   = el.querySelector(".zone.right");
-
-    // meaning content (slots)
-    meanL.textContent = wordObj.meaning || "";
-    meanR.textContent = wordObj.meaning || "";
-
-    // X is centered: [-max..+max], 0 is center
-    let minX = 0, maxX = 0, curX = 0;
-
-    // 중앙 밴드(=yellow)
-    const TH_LEFT  = 0.40;
-    const TH_RIGHT = 0.60;
-
-    // drag intent
-    let pending = false;
-    let intent = null; // "drag" | "scroll" | null
-    let pid = null;
-    let downX = 0, downY = 0;
-    let startClientX = 0, startX = 0;
-    const INTENT_PX = 8;
-
-    // animation flags
-    let bootAnimating = false;
-
-    // peek multipliers
-    let peekL = 0, peekR = 0;
-
-    // ✅ peek 토큰(빠른 클릭 freeze 방지)
-    let peekToken = 0;
-
-    function computeBounds() {
-      const trackRect = el.getBoundingClientRect();
-      const pillRect  = pill.getBoundingClientRect();
-      const pad = 10;
-      const half = trackRect.width / 2;
-      const halfP = pillRect.width / 2;
-      minX = -(half - halfP - pad);
-      maxX = +(half - halfP - pad);
-      if(!Number.isFinite(minX) || !Number.isFinite(maxX)){
-        minX = -120; maxX = 120;
-      }
-    }
-
-    function progress01(x){
-      if (maxX === minX) return 0.5;
-      return (x - minX) / (maxX - minX);
-    }
-
-    function statusToX(st){
-      if(st === "red") return minX;
-      if(st === "green") return maxX;
-      // yellow or unknown
-      return 0;
-    }
-
-    function snapByX(x){
-      const p = progress01(x);
-      if(p <= TH_LEFT) return "red";
-      if(p >= TH_RIGHT) return "green";
-      return "yellow";
-    }
-
-    function setTrackClass(st){
-      el.classList.remove("is-unknown","is-red","is-yellow","is-green");
-      el.classList.add(
-        st === "red" ? "is-red" :
-        st === "green" ? "is-green" :
-        st === "yellow" ? "is-yellow" : "is-unknown"
-      );
-    }
-
-    function setPillColorByProgress(p){
-      // 3-stop mix: red <-> amber <-> green
-      let rgb, a = 0.30, bdA = 0.32;
-      if(p <= 0.5){
-        const t = p / 0.5;
-        rgb = [
-          Math.round(lerp(RGB_RED[0], RGB_AMBER[0], t)),
-          Math.round(lerp(RGB_RED[1], RGB_AMBER[1], t)),
-          Math.round(lerp(RGB_RED[2], RGB_AMBER[2], t)),
-        ];
-      }else{
-        const t = (p - 0.5) / 0.5;
-        rgb = [
-          Math.round(lerp(RGB_AMBER[0], RGB_GREEN[0], t)),
-          Math.round(lerp(RGB_AMBER[1], RGB_GREEN[1], t)),
-          Math.round(lerp(RGB_AMBER[2], RGB_GREEN[2], t)),
-        ];
-      }
-      pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-      pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${bdA})`;
-    }
-
-    function getStableStatus(){
-      return wordObj.status || "unknown";
-    }
-
-    function setLightStyle(node, rgb, mode){
-      // mode: "on" | "off" | "gone"
-      if(mode === "gone"){
-        node.style.opacity = "0";
-        node.style.boxShadow = "none";
-        node.style.background = rgba(rgb, 0.92);
-        return;
-      }
-      if(mode === "off"){
-        node.style.opacity = "0.10";
-        node.style.boxShadow = "none";
-        node.style.background = rgba(rgb, 0.92);
-        return;
-      }
-      // on
-      node.style.opacity = "0.62";
-      node.style.background = rgba(rgb, 0.92);
-      node.style.boxShadow = `
-        0 0 22px rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32),
-        0 0 48px rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.16)
-      `;
-    }
-
-    function applyStableLightsAndTints(st){
-      // ✅ unknown: 3 lights 모두 ON (중앙이든 어디든)
-      if(st === "unknown"){
-        setLightStyle(lightL, RGB_RED, "on");
-        setLightStyle(lightC, RGB_AMBER, "on");
-        setLightStyle(lightR, RGB_GREEN, "on");
-
-        // ✅ unknown에서는 amber tint가 보이면 안 됨
-        tintL.style.opacity = "0";
-        tintR.style.opacity = "0";
-        tintAL.style.opacity = "0";
-        tintAR.style.opacity = "0";
-
-        // unknown은 CSS가 투명도 담당
-        pill.style.background = "";
-        pill.style.borderColor = "";
-        return;
-      }
-
-      // ✅ red/yellow/green: 확정색 light는 gone, 나머지 2개는 off
-      if(st === "red"){
-        setLightStyle(lightL, RGB_RED, "gone");
-        setLightStyle(lightC, RGB_AMBER, "off");
-        setLightStyle(lightR, RGB_GREEN, "off");
-
-        tintL.style.opacity = "0.90";
-        tintR.style.opacity = "0";
-        tintAL.style.opacity = "0";
-        tintAR.style.opacity = "0";
-
-        setPillColorByProgress(0.0);
-        return;
-      }
-
-      if(st === "yellow"){
-        setLightStyle(lightL, RGB_RED, "off");
-        setLightStyle(lightC, RGB_AMBER, "gone");
-        setLightStyle(lightR, RGB_GREEN, "off");
-
-        tintL.style.opacity = "0";
-        tintR.style.opacity = "0";
-        // ✅ yellow에서만 amber tint ON (그리고 끝까지 퍼지지 않게 CSS에서 줄임)
-        tintAL.style.opacity = "0.55";
-        tintAR.style.opacity = "0.55";
-
-        setPillColorByProgress(0.5);
-        return;
-      }
-
-      if(st === "green"){
-        setLightStyle(lightL, RGB_RED, "off");
-        setLightStyle(lightC, RGB_AMBER, "off");
-        setLightStyle(lightR, RGB_GREEN, "gone");
-
-        tintL.style.opacity = "0";
-        tintR.style.opacity = "0.90";
-        tintAL.style.opacity = "0";
-        tintAR.style.opacity = "0";
-
-        setPillColorByProgress(1.0);
-        return;
-      }
-    }
-
-    function applyDragLightsAndTints(x){
-      const p = progress01(x);
-
-      const redI   = smoothstep(clamp01((0.5 - p)/0.5));
-      const greenI = smoothstep(clamp01((p - 0.5)/0.5));
-      const yellowI = smoothstep(clamp01(1 - (Math.abs(p - 0.5) / 0.5))); // center peak
-
-      // lights: continuous while dragging/boot
-      // (but still allow edge fade for red/green)
-      const leftEdgeFade  = smoothstep(clamp01(p / TH_LEFT));
-      const rightEdgeFade = smoothstep(clamp01((1 - p) / (1 - TH_RIGHT)));
-
-      const oL = clamp01(redI * leftEdgeFade);
-      const oR = clamp01(greenI * rightEdgeFade);
-      const oC = clamp01(yellowI * 0.95);
-
-      // "on/off" 느낌을 연속으로 만들기 위해 직접 set
-      lightL.style.opacity = String(oL);
-      lightL.style.background = rgba(RGB_RED, 0.92);
-      lightL.style.boxShadow = oL > 0.02 ? `0 0 ${Math.round(18+28*oL)}px rgba(${RGB_RED[0]},${RGB_RED[1]},${RGB_RED[2]},${0.30*oL}), 0 0 ${Math.round(40+60*oL)}px rgba(${RGB_RED[0]},${RGB_RED[1]},${RGB_RED[2]},${0.16*oL})` : "none";
-
-      lightR.style.opacity = String(oR);
-      lightR.style.background = rgba(RGB_GREEN, 0.92);
-      lightR.style.boxShadow = oR > 0.02 ? `0 0 ${Math.round(18+28*oR)}px rgba(${RGB_GREEN[0]},${RGB_GREEN[1]},${RGB_GREEN[2]},${0.30*oR}), 0 0 ${Math.round(40+60*oR)}px rgba(${RGB_GREEN[0]},${RGB_GREEN[1]},${RGB_GREEN[2]},${0.16*oR})` : "none";
-
-      lightC.style.opacity = String(oC);
-      lightC.style.background = rgba(RGB_AMBER, 0.92);
-      lightC.style.boxShadow = oC > 0.02 ? `0 0 ${Math.round(18+28*oC)}px rgba(${RGB_AMBER[0]},${RGB_AMBER[1]},${RGB_AMBER[2]},${0.26*oC}), 0 0 ${Math.round(40+60*oC)}px rgba(${RGB_AMBER[0]},${RGB_AMBER[1]},${RGB_AMBER[2]},${0.14*oC})` : "none";
-
-      // tints: red/green always ok in drag, amber only in drag (not unknown stable)
-      tintL.style.opacity  = String(Math.min(1, redI * 0.9));
-      tintR.style.opacity  = String(Math.min(1, greenI * 0.9));
-      tintAL.style.opacity = String(Math.min(1, yellowI * 0.55));
-      tintAR.style.opacity = String(Math.min(1, yellowI * 0.55));
-
-      // pill color: continuous
-      setPillColorByProgress(p);
-
-      // meaning opacity: continuous while dragging/boot
-      let opL = 0, opR = 0;
-      opR = smoothstep(clamp01((TH_LEFT - p) / TH_LEFT));
-      opL = smoothstep(clamp01((p - TH_RIGHT) / (1 - TH_RIGHT)));
-
-      // overlay peek
-      opL = Math.max(opL, peekL);
-      opR = Math.max(opR, peekR);
-
-      meanL.style.opacity = String(opL);
-      meanR.style.opacity = String(opR);
-
-      meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
-      meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
-    }
-
-    function applyVisuals(x){
-      if(intent === "drag" || bootAnimating){
-        applyDragLightsAndTints(x);
-      }else{
-        // stable
-        applyStableLightsAndTints(getStableStatus());
-
-        // meaning opacity: stable에서는 peek만
-        const opL = peekL;
-        const opR = peekR;
-        meanL.style.opacity = String(opL);
-        meanR.style.opacity = String(opR);
-        meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
-        meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
-      }
-    }
-
-    function moveTo(x, snap){
-      const clamped = Math.max(minX, Math.min(maxX, x));
-      curX = clamped;
-      if(snap) pill.classList.remove("dragging");
-      pill.style.transform = `translate(-50%, -50%) translateX(${clamped}px)`;
-      applyVisuals(clamped);
-    }
-
-    function markTouched(){
-      if(!wordObj.touched){
-        wordObj.touched = true;
-        state.words[index].touched = true;
-      }
-    }
-
-    function cancelPeekNow(){
-      // ✅ 이전 애니메이션 완전 무효화 (freeze 방지)
-      peekToken++;
-      peekL = 0; peekR = 0;
-      pill.classList.remove("is-meaning");
-      pill.style.width = "";
-      pillTxt.style.opacity = "1";
-      // 현재 텍스트는 상태와 무관하게 "word"로 일단 복귀(안전)
-      pillTxt.textContent = wordObj.word || "";
-      applyVisuals(curX);
-      fitAllText();
-    }
-
-    function applyStatus(nextStatus, opts){
-      const save = !(opts && opts.save === false);
-      const prev = getStableStatus();
-
-      // ✅ unknown은 최초 상호작용 이후 돌아오지 않음
-      if(prev !== "unknown" && nextStatus === "unknown"){
-        nextStatus = "yellow";
-      }
-      if(prev === "unknown"){
-        markTouched();
-        if(nextStatus === "unknown") nextStatus = "yellow";
-      }
-
-      // ✅ 상태/클릭/드래그로 들어오는 "모든 순간"에 peek가 되기 위해,
-      //    시작 전에 기존 peek를 완전히 정리
-      cancelPeekNow();
-
-      wordObj.status = nextStatus;
-      state.words[index].status = nextStatus;
-
-      if(save) saveState(state);
-
-      setTrackClass(nextStatus);
-      moveTo(statusToX(nextStatus), true);
-
-      triggerPeek(nextStatus);
-    }
-
-    /* =========================
-       Fit text (no ellipsis)
-    ========================= */
-    function fitAllText(){
-      // meaning slots: fit into their own width
-      const slotW = meanL.getBoundingClientRect().width - 6;
-      fitText(meanL, meanL.textContent, { maxPx: slotW, base: 14, min: 11, weight: 600, letter: "-.2px" });
-      fitText(meanR, meanR.textContent, { maxPx: slotW, base: 14, min: 11, weight: 600, letter: "-.2px" });
-
-      // pill text: fit into pill width
-      const innerW = pill.getBoundingClientRect().width - 28;
-      const isMeaning = pill.classList.contains("is-meaning");
-      fitText(pillTxt, pillTxt.textContent, {
-        maxPx: innerW,
-        base: isMeaning ? 14 : 15,
-        min: 11,
-        weight: isMeaning ? 600 : 900,
-        letter: "-.2px"
-      });
-    }
-
-    /* =========================
-       Peek behaviors
-    ========================= */
-    function triggerPeek(st){
-      const token = ++peekToken;
-
-      const inMs   = getVarMs("--peek-in-ms", 120);
-      const holdMs = getVarMs("--peek-hold-ms", 520);
-      const outMs  = getVarMs("--peek-out-ms", 260);
-
-      // reset slot peek
-      peekL = 0; peekR = 0;
-
-      // ensure pill baseline
-      pill.classList.remove("is-meaning");
-      pill.style.width = "";
-      pillTxt.style.opacity = "1";
-      pillTxt.textContent = wordObj.word || "";
-
-      fitAllText();
-      applyVisuals(curX);
-
-      // red/green: side slot peek
-      if(st === "red"){
-        peekR = 1;
-        applyVisuals(curX);
-
-        setTimeout(()=>{
-          if(token !== peekToken) return;
-          peekR = 0;
-          applyVisuals(curX);
-        }, inMs + holdMs + outMs);
-        return;
-      }
-
-      if(st === "green"){
-        peekL = 1;
-        applyVisuals(curX);
-
-        setTimeout(()=>{
-          if(token !== peekToken) return;
-          peekL = 0;
-          applyVisuals(curX);
-        }, inMs + holdMs + outMs);
-        return;
-      }
-
-      // yellow: pill 내부 word -> meaning -> word (폭 확장)
-      if(st === "yellow"){
-        const basePx = parseFloat(getComputedStyle(pill).width) || 140;
-
-        // measure meaning width using "meaning style"
-        measurer.style.fontSize = "14px";
-        measurer.style.fontWeight = "600";
-        measurer.style.letterSpacing = "-.2px";
-        measurer.textContent = wordObj.meaning || "";
-        const measW = measurer.getBoundingClientRect().width;
-
-        const target = Math.ceil(measW + 28 + 18);
-        const trackW = el.getBoundingClientRect().width;
-        const maxW = Math.max(basePx, trackW - 20);
-        const targetW = Math.min(maxW, Math.max(basePx, target));
-
-        // step1: fade out word
-        pillTxt.style.opacity = "0";
-
-        setTimeout(()=>{
-          if(token !== peekToken) return;
-
-          // swap to meaning
-          pill.classList.add("is-meaning");
-          pillTxt.textContent = wordObj.meaning || "";
-          pill.style.width = `${targetW}px`;
-          fitAllText();
-          pillTxt.style.opacity = "1";
-
-          // hold then back to word
-          setTimeout(()=>{
-            if(token !== peekToken) return;
-
-            pillTxt.style.opacity = "0";
-            setTimeout(()=>{
-              if(token !== peekToken) return;
-
-              pill.classList.remove("is-meaning");
-              pillTxt.textContent = wordObj.word || "";
-              pill.style.width = "";
-              fitAllText();
-              pillTxt.style.opacity = "1";
-            }, outMs);
-
-          }, holdMs);
-
-        }, inMs);
-
-        return;
-      }
-    }
-
-    /* =========================
-       Init (boot + resize-safe)
-    ========================= */
-    let lastW = 0;
-
-    function init(mode){
-      computeBounds();
-
-      const trackW = el.getBoundingClientRect().width;
-      const widthChanged = Math.abs(trackW - lastW) > 2;
-      lastW = trackW;
-
-      const st = getStableStatus();
-
-      if(mode === "resize" && !widthChanged) return;
-
-      if(mode === "resize"){
-        pill.classList.add("booting");
-        bootAnimating = false;
-        cancelPeekNow();
-        setTrackClass(st);
-        moveTo(statusToX(st), true);
-        requestAnimationFrame(()=>{
-          pill.classList.remove("booting");
-          fitAllText();
-        });
-        return;
-      }
-
-      // boot: center hold -> ease move to saved state
-      const holdMs = getVarMs("--boot-hold-ms", 600);
-      const moveMs = getVarMs("--boot-move-ms", 2600);
-
-      pill.classList.add("booting");
-      bootAnimating = false;
-      cancelPeekNow();
-
-      // start in center (unknown visuals)
-      setTrackClass("unknown");
-      moveTo(0, true);
-
-      requestAnimationFrame(()=>{
-        el.classList.remove("preboot");
-        fitAllText();
-
-        // untouched면 그냥 stay
-        if(st === "unknown" || !wordObj.touched){
-          pill.classList.remove("booting");
-          applyVisuals(curX);
-          return;
-        }
-
-        setTimeout(()=>{
-          bootAnimating = true;
-          const fromX = 0;
-          const toX = statusToX(st);
-          const t0 = performance.now();
-
-          function step(now){
-            const t = clamp01((now - t0) / moveMs);
-            const e = easeInOutCubic(t);
-            const x = lerp(fromX, toX, e);
-            moveTo(x, false);
-
-            if(t < 1){
-              requestAnimationFrame(step);
-            }else{
-              bootAnimating = false;
-              pill.classList.remove("booting");
-              setTrackClass(st);
-              moveTo(toX, true);
-              fitAllText();
-              triggerPeek(st);
-            }
-          }
-
-          requestAnimationFrame(step);
-        }, holdMs);
-      });
-    }
-
-    requestAnimationFrame(()=> init("boot"));
-
-    let resizeT = null;
-    window.addEventListener("resize", ()=>{
-      clearTimeout(resizeT);
-      resizeT = setTimeout(()=> init("resize"), 80);
-    }, { passive:true });
-
-    /* =========================
-       Drag (intent-based)
-    ========================= */
-    pill.addEventListener("pointerdown", (e)=>{
-      pending = true;
-      intent = null;
-      pid = e.pointerId;
-
-      computeBounds();
-      downX = e.clientX;
-      downY = e.clientY;
-
-      startClientX = e.clientX;
-      startX = curX;
-    });
-
-    pill.addEventListener("pointermove", (e)=>{
-      if(!pending || e.pointerId !== pid) return;
-
-      const dx0 = e.clientX - downX;
-      const dy0 = e.clientY - downY;
-
-      if(!intent){
-        const adx = Math.abs(dx0);
-        const ady = Math.abs(dy0);
-
-        if(adx > INTENT_PX && adx > ady){
-          intent = "drag";
-          pill.setPointerCapture(pid);
-          pill.classList.add("dragging");
-          cancelPeekNow(); // ✅ 드래그 시작 시 잔상 제거
-          startClientX = e.clientX;
-          startX = curX;
-        }else if(ady > INTENT_PX && ady > adx){
-          intent = "scroll";
-          pending = false;
-          return;
-        }else{
-          return;
-        }
-      }
-
-      if(intent !== "drag") return;
-
-      const dx = e.clientX - startClientX;
-      moveTo(startX + dx, false);
-
-      e.preventDefault();
-    });
-
-    function endPointer(e){
-      if(e.pointerId !== pid) return;
-
-      // TAP (no drag)
-      if(intent !== "drag"){
-        pending = false;
-        intent = null;
-
-        const st = getStableStatus();
-        if(st === "unknown"){
-          applyStatus("yellow");
-        }else{
-          applyStatus(st); // same state => peek
-        }
-        return;
-      }
-
-      // drag end
-      pending = false;
-      pill.classList.remove("dragging");
-
-      const snapped = snapByX(curX);
-      applyStatus(snapped);
-
-      intent = null;
-      e.preventDefault();
-    }
-
-    pill.addEventListener("pointerup", endPointer);
-    pill.addEventListener("pointercancel", endPointer);
-
-    /* =========================
-       Zones clicks
-    ========================= */
-    zoneL.addEventListener("click", ()=> applyStatus("red"));
-    zoneR.addEventListener("click", ()=> applyStatus("green"));
-    zoneC.addEventListener("click", ()=> applyStatus("yellow"));
-
-    // initial visuals
-    applyVisuals(curX);
-    requestAnimationFrame(()=> fitAllText());
-
-    return el;
-  }
-
-  /* =========================
-     Render
-  ========================= */
-  let state = loadState();
-
-  function render() {
-    listEl.innerHTML = "";
-    const count = state.words.length;
-
-    const remain = Math.max(0, 3 - state.chargeUsed);
-    remainText.textContent = `${remain}/3`;
-    btnCharge.disabled = remain <= 0;
-
-    if (count === 0) {
-      emptyState.style.display = "block";
-      return;
-    }
-    emptyState.style.display = "none";
-
-    state.words.forEach((w, idx) => {
-      listEl.appendChild(buildTrackRow(w, idx, state));
+}
+
+function saveState(state){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+
+/* =========================
+   Dummy words (Step1)
+========================= */
+function makeDummyWords(n){
+  const pool = [
+    ["abandon", "버리다, 포기하다"],
+    ["accurate", "정확한"],
+    ["benevolent", "자비로운, 선의의"],
+    ["consequence", "결과, 영향"],
+    ["diligent", "성실한"],
+    ["elaborate", "정교한, 상세히 설명하다"],
+    ["friction", "마찰, 충돌"],
+    ["gratitude", "감사"],
+    ["hesitate", "망설이다"],
+    ["inevitable", "피할 수 없는"]
+  ];
+  const out = [];
+  const base = Date.now().toString(36);
+  for(let i=0;i<n;i++){
+    const pick = pool[Math.floor(Math.random()*pool.length)];
+    out.push({
+      id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
+      word: pick[0],
+      meaning: pick[1],
+      status: "unknown" // Step1 상태는 unknown/red/yellow/green만
     });
   }
+  return out;
+}
 
-  /* =========================
-     Charge modal
-  ========================= */
-  btnCharge.addEventListener("click", () => {
-    state = loadState();
-    const remain = Math.max(0, 3 - state.chargeUsed);
-    remainText.textContent = `${remain}/3`;
-    dlgChargeDo.disabled = remain <= 0;
-    dlgCharge.show();
+/* =========================
+   UI refs
+========================= */
+const toast = document.getElementById("toast");
+const toastText = document.getElementById("toastText");
+
+const btnCharge = document.getElementById("btnCharge");
+const dlgCharge = document.getElementById("dlgCharge");
+const dlgChargeDo = document.getElementById("dlgChargeDo");
+const dlgChargeClose = document.getElementById("dlgChargeClose");
+const remainText = document.getElementById("remainText");
+
+const listEl = document.getElementById("list");
+const emptyState = document.getElementById("emptyState");
+
+function showToast(msg){
+  toastText.textContent = msg;
+  toast.toast();
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/* =========================
+   State helpers (id 기반)
+========================= */
+let state = loadState();
+
+function findWordIndexById(id){
+  return state.words.findIndex(w => w && w.id === id);
+}
+
+function setStatusById(id, nextStatus){
+  const i = findWordIndexById(id);
+  if(i < 0) return;
+
+  const prev = state.words[i].status || "unknown";
+
+  // Step1 정책: unknown은 "처음"만 허용하고, 한 번 바뀌면 다시 unknown으로 못 돌아감
+  if(prev !== "unknown" && nextStatus === "unknown"){
+    nextStatus = "yellow";
+  }
+  if(prev === "unknown" && nextStatus === "unknown"){
+    nextStatus = "yellow";
+  }
+
+  state.words[i].status = nextStatus;
+  saveState(state);
+  render(); // Step1은 단순하게 전체 리렌더
+}
+
+/* =========================
+   Track builder (Step1 단순 버전)
+   - 색/빛/peek/드래그 없음
+   - zone 클릭으로 status만 바꿈
+========================= */
+function buildTrackRow(wordObj){
+  const el = document.createElement("div");
+  const st = wordObj.status || "unknown";
+
+  el.className = `track ${st === "unknown" ? "is-unknown" : st === "red" ? "is-red" : st === "green" ? "is-green" : "is-yellow"}`;
+  el.dataset.id = wordObj.id;
+
+  el.innerHTML = `
+    <div class="tint left"></div>
+    <div class="tint right"></div>
+    <div class="tint amberL"></div>
+    <div class="tint amberR"></div>
+
+    <div class="lights">
+      <div class="light left"></div>
+      <div class="light center"></div>
+      <div class="light right"></div>
+    </div>
+
+    <div class="meaning-slot meaning-left"></div>
+    <div class="meaning-slot meaning-right"></div>
+
+    <div class="zone left" aria-label="왼쪽(RED)"></div>
+    <div class="zone center" aria-label="가운데(YELLOW)"></div>
+    <div class="zone right" aria-label="오른쪽(GREEN)"></div>
+
+    <div class="pill" role="button" aria-label="단어 필">
+      <span class="pill-text">${escapeHtml(wordObj.word)}</span>
+    </div>
+  `;
+
+  // meaning 슬롯은 Step1에서도 그냥 채워둠(디자인 유지용)
+  el.querySelector(".meaning-left").textContent = wordObj.meaning || "";
+  el.querySelector(".meaning-right").textContent = wordObj.meaning || "";
+
+  // zone 클릭 → status 변경
+  el.querySelector(".zone.left").addEventListener("click", (e)=>{
+    e.stopPropagation();
+    setStatusById(wordObj.id, "red");
+  });
+  el.querySelector(".zone.center").addEventListener("click", (e)=>{
+    e.stopPropagation();
+    setStatusById(wordObj.id, "yellow");
+  });
+  el.querySelector(".zone.right").addEventListener("click", (e)=>{
+    e.stopPropagation();
+    setStatusById(wordObj.id, "green");
   });
 
-  dlgChargeClose.addEventListener("click", () => dlgCharge.hide());
+  // Step1: pill 탭은 unknown이면 yellow로만 바꾸는 “최소 동작”만
+  el.querySelector(".pill").addEventListener("click", ()=>{
+    const cur = wordObj.status || "unknown";
+    if(cur === "unknown") setStatusById(wordObj.id, "yellow");
+  });
 
-  dlgChargeDo.addEventListener("click", () => {
-    state = loadState();
-    const remain = 3 - state.chargeUsed;
-    if (remain <= 0) {
-      dlgCharge.hide();
-      showToast("오늘 충전은 3회까지예요.");
-      return;
-    }
-    state.words = state.words.concat(makeDummyWords(10));
-    state.chargeUsed += 1;
-    saveState(state);
+  return el;
+}
+
+/* =========================
+   Render
+========================= */
+function render(){
+  state = loadState();
+
+  listEl.innerHTML = "";
+  const count = state.words.length;
+
+  const remain = Math.max(0, 3 - state.chargeUsed);
+  remainText.textContent = `${remain}/3`;
+  btnCharge.disabled = remain <= 0;
+
+  if(count === 0){
+    emptyState.style.display = "block";
+    return;
+  }
+  emptyState.style.display = "none";
+
+  for(const w of state.words){
+    listEl.appendChild(buildTrackRow(w));
+  }
+}
+
+/* =========================
+   Charge modal
+========================= */
+btnCharge.addEventListener("click", ()=>{
+  state = loadState();
+  const remain = Math.max(0, 3 - state.chargeUsed);
+  remainText.textContent = `${remain}/3`;
+  dlgChargeDo.disabled = remain <= 0;
+  dlgCharge.show();
+});
+
+dlgChargeClose.addEventListener("click", ()=> dlgCharge.hide());
+
+dlgChargeDo.addEventListener("click", ()=>{
+  state = loadState();
+  const remain = 3 - state.chargeUsed;
+  if(remain <= 0){
     dlgCharge.hide();
+    showToast("오늘 충전은 3회까지예요.");
+    return;
+  }
 
-    render();
-    showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
-  });
+  state.words = state.words.concat(makeDummyWords(10));
+  state.chargeUsed += 1;
+  saveState(state);
 
-  /* =========================
-     Boot
-  ========================= */
+  dlgCharge.hide();
   render();
-  requestAnimationFrame(() => document.documentElement.classList.add("ready"));
-  </script>
-</body>
-</html>
+  showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
+});
+
+/* =========================
+   Boot
+========================= */
+render();
+requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
+</script>
