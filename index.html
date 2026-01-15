@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>신호등보카 (Rebuild v1.1)</title>
+  <title>신호등보카 (Rebuild v1.2)</title>
 
   <!-- Shoelace (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
@@ -60,7 +60,7 @@
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Helvetica Neue", sans-serif;
-     color: var(--text);
+      color: var(--text);
       min-height: 100svh;
       background: transparent;
     }
@@ -216,12 +216,10 @@
     .zone.center{ left:33%; width:34%; }
     .zone.right{ right:0; width:34%; }
 
+    /* ✅ pill: 상태에 따라 고정점이 달라짐 (red=left, yellow=center, green=right) */
     .pill{
       position:absolute;
       top: 50%;
-      /* ✅ left(px) 기반으로 center를 잡고, transform(-50%)는 “항상 중앙 정렬 텍스트” 유지용 */
-      left: 50%;
-      transform: translate(-50%, -50%);
       height: var(--pill-h);
       min-width: var(--pill-minw);
       width: var(--pill-minw);
@@ -240,17 +238,40 @@
       background: rgba(230,235,245,var(--default-pill-alpha));
       border: var(--pill-bd) solid rgba(255,255,255,var(--default-pill-bd-alpha));
 
-      will-change: left, width, background, border-color;
+      will-change: left, right, width, background, border-color, transform;
       transition:
         left var(--move-ms) cubic-bezier(.2,.9,.25,1),
+        right var(--move-ms) cubic-bezier(.2,.9,.25,1),
         width 220ms ease,
         background 120ms linear,
-        border-color 120ms linear;
+        border-color 120ms linear,
+        transform 180ms cubic-bezier(.2,.9,.25,1);
 
       z-index: 4;
       overflow: hidden;
 
       pointer-events: none; /* ✅ pill 클릭 제거(영역 클릭만) */
+    }
+
+    /* red: 왼쪽 고정 */
+    .pill.pos-left{
+      left: var(--edge-pad);
+      right: auto;
+      transform: translateY(-50%);
+    }
+
+    /* yellow: 중앙 정렬 */
+    .pill.pos-center{
+      left: 50%;
+      right: auto;
+      transform: translate(-50%, -50%);
+    }
+
+    /* green: 오른쪽 고정 */
+    .pill.pos-right{
+      right: var(--edge-pad);
+      left: auto;
+      transform: translateY(-50%);
     }
 
     .pill-text{
@@ -382,13 +403,13 @@
 
   <script>
   /* =========================================================
-    Rebuild v1.1
-    - ✅ anchor 기반(width 변화 시 트랙 밖으로 안 나가게)
+    Rebuild v1.2
+    - ✅ yellow만 중앙정렬, red/green은 edge 고정 (centerX 계산 제거)
     - ✅ 잔상/튐 제거(토큰으로 이전 애니/타이머 무효화)
     - ✅ pill 클릭 없음(영역 클릭만)
   ========================================================= */
 
-  const LS_KEY = "signal_vocab_rebuild_v1_1";
+  const LS_KEY = "signal_vocab_rebuild_v1_2";
   const todayKey = (() => {
     const d = new Date();
     const y = d.getFullYear();
@@ -423,7 +444,7 @@
       ["benevolent", "자비로운, 선의의"],
       ["consequence", "결과, 영향"],
       ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다"],
+      ["elaborate", "정교한, 상세히 설명하다, ㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇ"],
       ["friction", "마찰, 충돌"],
       ["gratitude", "감사"],
       ["hesitate", "망설이다"],
@@ -514,10 +535,49 @@
     const minW = getCSSNum("--pill-minw", 140);
     const padX = getCSSNum("--pill-pad-x", 14);
     const bd = getCSSNum("--pill-bd", 1);
+
     const tW = measureTextPx(text, isMeaning);
     const w = Math.max(minW, tW + (padX*2) + (bd*2) + 6);
+
     pillEl.style.width = w + "px";
     return w;
+  }
+
+  function setDefaultVisual(pill, tintL, tintR, tintAL, tintAR){
+    pill.style.background = "";
+    pill.style.borderColor = "";
+    tintL.style.opacity = "0";
+    tintR.style.opacity = "0";
+    tintAL.style.opacity = "0";
+    tintAR.style.opacity = "0";
+  }
+
+  function applyContinuousVisual(p, pill, tintL, tintR, tintAL, tintAR){
+    const rgb = mix3(p);
+    pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.30)`;
+    pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
+
+    const redI = clamp01((0.5 - p) / 0.5);
+    const greenI = clamp01((p - 0.5) / 0.5);
+    const yellowI = 1 - clamp01(Math.abs(p - 0.5) / 0.5);
+
+    tintL.style.opacity  = String(Math.min(1, redI * 0.85));
+    tintR.style.opacity  = String(Math.min(1, greenI * 0.85));
+    tintAL.style.opacity = String(Math.min(1, yellowI * 0.55));
+    tintAR.style.opacity = String(Math.min(1, yellowI * 0.55));
+  }
+
+  function statusToP(st){
+    if(st === "red") return 0;
+    if(st === "green") return 1;
+    if(st === "yellow") return 0.5;
+    return 0.5; // default는 중앙(비주얼은 default 처리)
+  }
+  function statusToPosClass(st){
+    if(st === "red") return "pos-left";
+    if(st === "green") return "pos-right";
+    // yellow/default
+    return "pos-center";
   }
 
   function buildTrackRow(wordObj, state){
@@ -552,129 +612,50 @@
     const pill   = el.querySelector(".pill");
     const txt    = el.querySelector(".pill-text");
 
-    // =========================
-    // Row-local tokens (✅ 잔상 제거 핵심)
-    // =========================
     let peekToken = 0;
     let moveToken = 0;
-
-    // 상태별 anchor
-    // red => left, yellow => center, green => right
-    function statusToAnchor(st){
-      if(st === "red") return "left";
-      if(st === "green") return "right";
-      return "center"; // yellow/default
-    }
-    function statusToP(st){
-      if(st === "red") return 0;
-      if(st === "green") return 1;
-      if(st === "yellow") return 0.5;
-      return 0.5; // default도 중앙
-    }
-
-    // 현재 진행 상태
     let curP = statusToP(wordObj.status || "default");
 
-    function applyContinuousVisual(p){
-      const rgb = mix3(p);
-      pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.30)`;
-      pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
-
-      const redI = clamp01((0.5 - p) / 0.5);
-      const greenI = clamp01((p - 0.5) / 0.5);
-      const yellowI = 1 - clamp01(Math.abs(p - 0.5) / 0.5);
-
-      tintL.style.opacity  = String(Math.min(1, redI * 0.85));
-      tintR.style.opacity  = String(Math.min(1, greenI * 0.85));
-      tintAL.style.opacity = String(Math.min(1, yellowI * 0.55));
-      tintAR.style.opacity = String(Math.min(1, yellowI * 0.55));
+    function applyPosByStatus(st){
+      pill.classList.remove("pos-left","pos-center","pos-right");
+      pill.classList.add(statusToPosClass(st));
     }
 
-    function setDefaultVisual(){
-      pill.style.background = "";
-      pill.style.borderColor = "";
-      tintL.style.opacity = "0";
-      tintR.style.opacity = "0";
-      tintAL.style.opacity = "0";
-      tintAR.style.opacity = "0";
-    }
-
-    // ✅ anchor 기반 centerX 계산
-    // - left: left edge 고정 => centerX = pad + width/2
-    // - right: right edge 고정 => centerX = trackW - pad - width/2
-    // - center: centerX = trackW/2
-    function computeCenterX(anchor, pillW){
-      const trackW = el.getBoundingClientRect().width;
-      const pad = getCSSNum("--edge-pad", 10);
-
-      if(anchor === "left"){
-        return pad + pillW/2;
-      }
-      if(anchor === "right"){
-        return trackW - pad - pillW/2;
-      }
-      return trackW/2;
-    }
-
-    function setPillLeftByAnchor(anchor){
-      const pillW = pill.getBoundingClientRect().width || getCSSNum("--pill-minw", 140);
-      const cx = computeCenterX(anchor, pillW);
-      pill.style.left = cx + "px";
-    }
-
-    // ✅ “상태/너비가 바뀔 때” 항상 anchor 기준으로 left를 재계산
-    function syncPositionForCurrentState(){
-      const st = wordObj.status || "default";
-      const anchor = statusToAnchor(st === "default" ? "yellow" : st);
-      setPillLeftByAnchor(anchor);
-    }
-
-    // ✅ 이동 애니메이션 (rAF) + 토큰으로 이전 애니 무효화
     function moveToStatus(nextStatus){
       const token = ++moveToken;
 
-      // default는 이동만(센터) 하고 비주얼은 default로
       const fromP = curP;
       const toP = statusToP(nextStatus);
       const moveMs = getCSSNum("--move-ms", 360);
-
       const t0 = performance.now();
 
+      // ✅ 포지션은 즉시 클래스 변경(이동은 CSS transition으로)
+      applyPosByStatus(nextStatus === "default" ? "yellow" : nextStatus);
+
       function step(now){
-        if(token !== moveToken) return; // ✅ 이전 move 무효
+        if(token !== moveToken) return;
         const t = clamp01((now - t0)/moveMs);
         const e = easeInOutCubic(t);
         const p = lerp(fromP, toP, e);
-
         curP = p;
 
-        // 비주얼
         if(nextStatus === "default"){
-          // default는 연속 비주얼 X
-          setDefaultVisual();
+          setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
         }else{
-          applyContinuousVisual(p);
+          applyContinuousVisual(p, pill, tintL, tintR, tintAL, tintAR);
         }
-
-        // 위치: anchor 기반
-        const anchor = statusToAnchor(nextStatus === "default" ? "yellow" : nextStatus);
-        const pillW = pill.getBoundingClientRect().width || getCSSNum("--pill-minw", 140);
-        const cx = computeCenterX(anchor, pillW);
-        pill.style.left = cx + "px";
 
         if(t < 1){
           requestAnimationFrame(step);
         }else{
-          // 끝난 뒤, 혹시 너비가 변했을 수 있으니 최종 싱크
-          syncPositionForCurrentState();
-          if(nextStatus !== "default") applyContinuousVisual(curP);
+          // 끝 정리
+          if(nextStatus === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
+          else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
         }
       }
-
       requestAnimationFrame(step);
     }
 
-    // ✅ peek: 단어→뜻→단어
     function startPeek(){
       const token = ++peekToken;
 
@@ -685,23 +666,17 @@
       const word = wordObj.word || "";
       const meaning = wordObj.meaning || "";
 
-      // step0: 현재 상태 anchor
-      const st = wordObj.status || "default";
-      const anchor = statusToAnchor(st === "default" ? "yellow" : st);
-
       // fade out
       txt.style.opacity = "0";
 
       setTimeout(()=>{
-        if(token !== peekToken) return; // ✅ 이전 peek 무효
+        if(token !== peekToken) return;
 
         pill.classList.add("is-meaning");
         txt.textContent = meaning;
 
-        // ✅ width 변경
+        // ✅ width 변경 (pos-left/pos-right는 edge 고정이라 drift 불가)
         setPillWidthToText(pill, meaning, true);
-        // ✅ width 변경 후 anchor 기준으로 left 재계산 (여기가 핵심!)
-        setPillLeftByAnchor(anchor);
 
         txt.style.opacity = "1";
 
@@ -718,8 +693,6 @@
 
             // ✅ word width 복원
             setPillWidthToText(pill, word, false);
-            // ✅ 복원 시에도 anchor 기준으로 left 재계산 (여기가 핵심!)
-            setPillLeftByAnchor(anchor);
 
             txt.style.opacity = "1";
           }, outMs);
@@ -735,12 +708,11 @@
 
       const prev = state.words[idx].status || "default";
 
-      // ✅ 첫 터치 순간 default 종료
       if(prev === "default"){
         state.words[idx].touched = true;
       }
 
-      // ✅ 한 번이라도 touched면 default로 돌아갈 수 없음
+      // touched면 default 금지
       if(state.words[idx].touched && nextStatus === "default"){
         nextStatus = "yellow";
       }
@@ -748,73 +720,50 @@
       state.words[idx].status = nextStatus;
       saveState(state);
 
-      // 로컬 오브젝트도 동기화
       wordObj.status = nextStatus;
       wordObj.touched = !!state.words[idx].touched;
     }
 
     function hardResetEffects(){
-      // ✅ 새로운 클릭 들어오면 이전 모든 타임라인 무효화
       peekToken++;
       moveToken++;
 
-      // 텍스트/클래스 강제 복구
       pill.classList.remove("is-meaning");
       txt.textContent = wordObj.word || "";
       txt.style.opacity = "1";
 
-      // width를 word 기준으로 먼저 복구하고(안전), 현재 상태 anchor로 즉시 정렬
       setPillWidthToText(pill, wordObj.word || "", false);
-      syncPositionForCurrentState();
 
-      // 비주얼은 status에 따라
       const st = wordObj.status || "default";
-      if(st === "default") setDefaultVisual();
-      else applyContinuousVisual(curP);
+      applyPosByStatus(st === "default" ? "yellow" : st);
+
+      if(st === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
+      else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
     }
 
     function onZoneClick(nextStatus){
-      // ✅ 잔상 제거: 먼저 이전 진행 중인 것 전부 정리
       hardResetEffects();
-
-      // 상태 저장
       commitStatus(nextStatus);
-
-      // 이동 + 비주얼
       moveToStatus(nextStatus);
-
-      // 의미 peek (이동과 동시에 시작 가능)
       startPeek();
     }
 
-    // 이벤트: 영역 클릭만
     zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("red"); });
     zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("yellow"); });
     zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); onZoneClick("green"); });
 
-    // 초기: word width 세팅 + 상태 반영
+    // 초기: word width + status 반영
     requestAnimationFrame(()=>{
       setPillWidthToText(pill, wordObj.word || "", false);
-      syncPositionForCurrentState();
 
       const st = wordObj.status || "default";
       curP = statusToP(st);
 
-      if(st === "default"){
-        setDefaultVisual(); // ✅ 초기 노란 잔상 방지
-      }else{
-        applyContinuousVisual(curP);
-      }
-    });
+      applyPosByStatus(st === "default" ? "yellow" : st);
 
-    // 리사이즈: anchor 기준으로 재정렬
-    let rt = null;
-    window.addEventListener("resize", ()=>{
-      clearTimeout(rt);
-      rt = setTimeout(()=>{
-        syncPositionForCurrentState();
-      }, 80);
-    }, { passive:true });
+      if(st === "default") setDefaultVisual(pill, tintL, tintR, tintAL, tintAR);
+      else applyContinuousVisual(curP, pill, tintL, tintR, tintAL, tintAR);
+    });
 
     return el;
   }
