@@ -409,9 +409,9 @@
       ["abandon", "버리다, 포기하다"],
       ["accurate", "정확한"],
       ["benevolent", "자비로운, 선의의"],
-      ["consequencedfdfdffdf", "결과, 영향"],
+      ["consequence", "결과, 영향"],
       ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다, ㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹㅇ"],
+      ["elaborate", "정교한, 상세히 설명하다"],
       ["friction", "마찰, 충돌"],
       ["gratitude", "감사"],
       ["hesitate", "망설이다"],
@@ -547,16 +547,36 @@
       return 0.5; // default
     }
 
-    function pToX(p){
+    // ✅ NEW: bounds + clamp based on current pill width
+    function getBounds(){
       const trackW = el.getBoundingClientRect().width;
-      const pillW = pill.getBoundingClientRect().width;
+      const pillW  = pill.getBoundingClientRect().width;
       const pad = 10;
-      const half = trackW/2;
-      const halfP = pillW/2;
+      const half = trackW / 2;
+      const halfP = pillW / 2;
       const minX = -(half - halfP - pad);
       const maxX = +(half - halfP - pad);
+      return { minX, maxX };
+    }
+
+    // ✅ NEW: always clamp by bounds
+    function setPillTransformByP(p){
+      const { minX, maxX } = getBounds();
       const x = lerp(minX, maxX, p);
-      return { x };
+      const cx = Math.max(minX, Math.min(maxX, x));
+      pill.style.transform = `translate(-50%, -50%) translateX(${cx}px)`;
+    }
+
+    // ✅ NEW: during width transition keep clamped every frame
+    function keepClampedDuringWidthTransition(durationMs = 260){
+      const t0 = performance.now();
+      function tick(now){
+        setPillTransformByP(curP);
+        if(now - t0 < durationMs){
+          requestAnimationFrame(tick);
+        }
+      }
+      requestAnimationFrame(tick);
     }
 
     function applyContinuousVisual(p){
@@ -581,11 +601,6 @@
       tintR.style.opacity = "0";
       tintAL.style.opacity = "0";
       tintAR.style.opacity = "0";
-    }
-
-    function setPillTransformByP(p){
-      const { x } = pToX(p);
-      pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
     }
 
     function moveToP(nextP, animate){
@@ -659,8 +674,9 @@
         setPillWidthToText(pill, meaning, true);
         txt.style.opacity = "1";
 
-        // 폭 변경 후 현재 p 위치로 재정렬
+        // ✅ width 변화 중에도 계속 clamp
         setPillTransformByP(curP);
+        keepClampedDuringWidthTransition(260);
 
         setTimeout(()=>{
           if(token !== peekToken) return;
@@ -674,7 +690,9 @@
             setPillWidthToText(pill, word, false);
             txt.style.opacity = "1";
 
+            // ✅ word로 돌아오며 폭 커질 때도 clamp 유지
             setPillTransformByP(curP);
+            keepClampedDuringWidthTransition(260);
           }, outMs);
 
         }, holdMs);
@@ -683,13 +701,11 @@
     }
 
     function onZone(status){
-      // 상태 갱신
       wordObj.status = status;
       if(wordObj.status === "default") wordObj.touched = true;
 
       commitStatus(status);
 
-      // 이동 + 비주얼
       if(status === "default"){
         setDefaultVisual();
         moveToP(0.5, true);
@@ -698,15 +714,14 @@
         moveToP(p, true);
       }
 
-      // meaning peek
       startPeek();
     }
 
-    zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("red"); else onZone("red"); });
-    zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("yellow"); else onZone("yellow"); });
-    zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); if(!moving) onZone("green"); else onZone("green"); });
+    zoneL.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("red"); });
+    zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("yellow"); });
+    zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("green"); });
 
-    // 초기 상태 반영 (✅ default면 절대 연속 비주얼 호출 안 함)
+    // 초기 상태 반영 (default면 연속 비주얼 호출 X)
     const initStatus = wordObj.status || "default";
     curP = statusToP(initStatus);
 
@@ -720,7 +735,7 @@
       }
     });
 
-    // resize: 위치 재정렬
+    // resize: 위치 재정렬 + clamp
     let rt = null;
     window.addEventListener("resize", ()=>{
       clearTimeout(rt);
@@ -783,6 +798,7 @@
 
   render();
   requestAnimationFrame(()=> document.documentElement.classList.add("ready"));
-  </script>
+</script>
+
 </body>
 </html>
