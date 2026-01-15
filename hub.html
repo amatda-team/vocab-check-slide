@@ -1,1 +1,260 @@
 
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vocab Check - 결과</title>
+
+  <!-- Shoelace -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/themes/light.css" />
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/dist/shoelace.js"></script>
+
+  <style>
+    :root{
+      --maxw: 520px;
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --line: rgba(0,0,0,.08);
+      --muted: rgba(0,0,0,.45);
+      --shadow: 0 10px 30px rgba(0,0,0,.06);
+      --radius: 18px;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+      color:#111;
+    }
+    .wrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 18px 14px 28px;
+    }
+    header{
+      padding: 10px 0 8px;
+    }
+    .title{
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .sub{
+      margin:0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .panel{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-top: 12px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stat{
+      background: rgba(0,0,0,.03);
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 10px 10px;
+    }
+    .stat .k{
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat .v{
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      font-size: 18px;
+    }
+    .row2{
+      display:flex;
+      gap: 12px;
+      align-items:center;
+      margin-top: 10px;
+    }
+    .pie{
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      background: conic-gradient(#3ec67a var(--p), #f45a5a 0);
+      box-shadow: 0 10px 22px rgba(0,0,0,.10);
+      border: 1px solid rgba(0,0,0,.08);
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .pie::after{
+      content:"";
+      position:absolute;
+      inset: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.06);
+    }
+    .pieCenter{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction: column;
+      align-items:center;
+      justify-content:center;
+      z-index: 1;
+      text-align:center;
+      pointer-events:none;
+    }
+    .pieCenter .big{
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+    .pieCenter .sm{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .legend{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: rgba(0,0,0,.75);
+    }
+    .dot{
+      display:inline-block;
+      width: 10px; height:10px;
+      border-radius: 3px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+    .actions{
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .hint{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">오늘의 단어 학습 끝!</div>
+      <p class="sub">지금은 프로토타입이라 숫자들이 “로컬 저장” 기준으로 계산돼.</p>
+    </header>
+
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="font-weight:900; letter-spacing:-0.02em; font-size:16px;">요약</div>
+        <sl-button href="index.html" variant="default">돌아가기</sl-button>
+      </div>
+
+      <div class="grid">
+        <div class="stat">
+          <div class="k">현재 총 단어 수</div>
+          <div class="v" id="totalWords">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">오늘의 단어 제출 누적 합</div>
+          <div class="v" id="processedSum">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">최신값: 알아요</div>
+          <div class="v" id="knowLatest">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">최신값: 몰라요</div>
+          <div class="v" id="dontLatest">0</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="pie" id="pie" style="--p: 0deg;">
+          <div class="pieCenter">
+            <div class="big" id="ratioText">0%</div>
+            <div class="sm">알아요 비율</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div><span class="dot" style="background:#3ec67a;"></span>알아요 (최신)</div>
+          <div><span class="dot" style="background:#f45a5a;"></span>몰라요 (최신)</div>
+          <div style="margin-top:4px; color:rgba(0,0,0,.55); font-size:12px;">
+            * 파이는 “최신 상태 기준” 비율
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        (추후) 여기서 출석/연속출석 스탬프, 더 다양한 통계 카드, 그래프들을 붙일 예정.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div style="font-weight:900; letter-spacing:-0.02em; font-size:16px;">오늘은 뭐 할래?</div>
+      <div class="actions">
+        <sl-button href="mode-brutal.html" variant="primary">니가 뭔데?</sl-button>
+        <sl-button href="mode-maybe.html" variant="default">혹시 모르니까..</sl-button>
+        <sl-button href="mode-sets.html" variant="default">세트 학습</sl-button>
+      </div>
+      <div class="hint">
+        - <b>니가 뭔데?</b>: “몰라요 3회 이상” 단어를 정면돌파로 학습 (추후 구현)<br/>
+        - <b>혹시 모르니까..</b>: “알아요 이후 15일 지난” 단어 복습 (추후 구현)<br/>
+        - <b>세트 학습</b>: 프리셋 세트를 선택해서 학습 (추후 구현)
+      </div>
+    </section>
+  </div>
+
+<script>
+(() => {
+  const LS_KEY = "vc_proto_v1";
+
+  const loadState = () => {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch(e){ return null; }
+  };
+
+  const st = loadState() || { wordStats: {}, processedSubmitCount: 0 };
+  const ws = st.wordStats || {};
+
+  const words = Object.keys(ws);
+  const totalWords = words.length;
+
+  let knowLatest = 0;
+  let dontLatest = 0;
+  for (const w of words){
+    const latest = ws[w]?.latest;
+    if (latest === "know") knowLatest++;
+    else if (latest === "dont") dontLatest++;
+  }
+
+  const denom = Math.max(1, knowLatest + dontLatest);
+  const knowRatio = knowLatest / denom; // 0..1
+
+  const $ = (id) => document.getElementById(id);
+  $("totalWords").textContent = String(totalWords);
+  $("processedSum").textContent = String(st.processedSubmitCount || 0);
+  $("knowLatest").textContent = String(knowLatest);
+  $("dontLatest").textContent = String(dontLatest);
+
+  const deg = Math.round(knowRatio * 360);
+  $("pie").style.setProperty("--p", `${deg}deg`);
+  $("ratioText").textContent = `${Math.round(knowRatio*100)}%`;
+})();
+</script>
+</body>
+</html>
