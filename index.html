@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Vocab Check Slide (Phase 0)</title>
+  <title>Vocab Check Slide (Phase 1)</title>
 
   <!-- Shoelace (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
@@ -14,12 +14,17 @@
       --app-max: 480px;
       --bg: #0b0f14;
       --card: rgba(255,255,255,.06);
-      --card2: rgba(255,255,255,.08);
       --line: rgba(255,255,255,.10);
       --text: rgba(255,255,255,.92);
       --muted: rgba(255,255,255,.62);
       --muted2: rgba(255,255,255,.45);
       --radius: 18px;
+
+      --neutral: rgba(230,235,245,.28);
+      --danger: rgba(255,90,90,.85);
+      --danger2: rgba(255,90,90,.22);
+      --ok: rgba(80,220,140,.85);
+      --ok2: rgba(80,220,140,.22);
     }
     *{ box-sizing: border-box; }
     body{
@@ -31,7 +36,10 @@
       min-height: 100svh;
     }
 
-    /* sticky toast zone */
+    /* ✅ Shoelace가 정의되기 전(iOS) sl-dialog 내용이 하단에 노출되는 현상 방지 */
+    sl-dialog:not(:defined){ display:none !important; }
+    sl-alert:not(:defined){ display:none !important; }
+
     .toast-wrap{
       position: sticky;
       top: 10px;
@@ -61,16 +69,8 @@
       border-radius: var(--radius);
       backdrop-filter: blur(10px);
     }
-    .title{
-      font-size: 16px;
-      font-weight: 750;
-      letter-spacing: -.2px;
-    }
-    .sub{
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
+    .title{ font-size: 16px; font-weight: 800; letter-spacing: -.2px; }
+    .sub{ font-size: 12px; color: var(--muted); margin-top: 2px; }
     .titlebox{ display:flex; flex-direction:column; }
 
     .section{
@@ -91,40 +91,8 @@
       gap: 10px;
       color: var(--muted);
     }
-    .empty .big{
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .empty .small{
-      font-size: 12px;
-      color: var(--muted2);
-      line-height: 1.5;
-    }
-
-    .list{
-      display:flex;
-      flex-direction:column;
-      gap: 10px;
-    }
-    .row{
-      padding: 12px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.03);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-    }
-    .row .word{
-      font-weight: 750;
-      letter-spacing: -.2px;
-    }
-    .row .meaning{
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .empty .big{ font-size: 14px; font-weight: 800; color: var(--text); }
+    .empty .small{ font-size: 12px; color: var(--muted2); line-height: 1.5; }
 
     .footer{
       position: fixed;
@@ -136,12 +104,9 @@
       backdrop-filter: blur(10px);
       z-index: 50;
     }
-    .footer-inner{
-      max-width: var(--app-max);
-      margin: 0 auto;
-    }
+    .footer-inner{ max-width: var(--app-max); margin: 0 auto; }
 
-    /* overlay (Phase 0에서는 충전 진행용) */
+    /* Overlay (charge animation) */
     .overlay{
       position: fixed;
       inset: 0;
@@ -162,17 +127,8 @@
       padding: 16px;
       box-shadow: 0 24px 70px rgba(0,0,0,.45);
     }
-    .overlay-title{
-      font-weight: 800;
-      letter-spacing: -.2px;
-      margin-bottom: 10px;
-    }
-    .overlay-sub{
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 8px;
-      line-height: 1.5;
-    }
+    .overlay-title{ font-weight: 900; letter-spacing: -.2px; margin-bottom: 10px; }
+    .overlay-sub{ font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
     .bar{
       height: 10px;
       width: 100%;
@@ -198,22 +154,11 @@
       background: rgba(20,24,32,.96);
       color: var(--text);
     }
-    sl-dialog::part(title){
-      font-weight: 800;
-      letter-spacing: -.2px;
-    }
-    sl-button::part(base){
-      border-radius: 14px;
-    }
-    .hint{
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-    .tiny{
-      font-size: 11px;
-      color: var(--muted2);
-    }
+    sl-dialog::part(title){ font-weight: 900; letter-spacing: -.2px; }
+    sl-button::part(base){ border-radius: 14px; }
+
+    .hint{ font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .tiny{ font-size: 11px; color: var(--muted2); }
     .remain{
       margin-top: 6px;
       font-size: 12px;
@@ -222,19 +167,158 @@
       align-items:center;
       gap: 8px;
     }
-    .remain b{
-      color: var(--text);
-      font-weight: 800;
+    .remain b{ color: var(--text); font-weight: 900; }
+
+    /* =========================
+       Phase 1: Track UI
+    ========================= */
+    .track-wrap{
+      display:none; /* words 없으면 숨김 */
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+    }
+    .track-top{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+    .track-wordline{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .track-word{
+      font-weight: 950;
+      letter-spacing: -.2px;
+      font-size: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-meta{
+      font-size: 11px;
+      color: var(--muted2);
     }
 
-      /* Shoelace가 아직 로드되기 전 iOS에서 sl-dialog 내용이 아래에 노출되는 현상 방지 
-     (선택) 토스트도 같이 “초기 플래시” 방지하고 싶으면*/
-    sl-dialog:not(:defined){ display:none !important; }
-    sl-alert:not(:defined){ display:none !important; }
+    .labels{
+      display:flex;
+      justify-content:space-between;
+      font-size: 12px;
+      letter-spacing: -.1px;
+      margin-bottom: 8px;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    .labels span{
+      transition: opacity .14s ease, transform .14s ease;
+      opacity: .60;
+    }
+    .labels span.off{
+      opacity: .26;
+      transform: scale(.98);
+    }
 
+    .track{
+      position: relative;
+      height: 52px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      overflow: hidden;
+      touch-action: pan-y; /* 드래그 중 세로 스크롤은 허용, 가로는 우리가 처리 */
+    }
 
+    /* 좌/우 영역 클릭용 */
+    .zone{
+      position:absolute;
+      top:0; bottom:0;
+      width: 50%;
+      z-index: 1;
+    }
+    .zone.left{ left:0; }
+    .zone.right{ right:0; }
 
-    
+    /* 배경 tint (살짝) */
+    .tint{
+      position:absolute;
+      inset:0;
+      opacity: 0;
+      transition: opacity .12s linear;
+      pointer-events:none;
+    }
+    .tint.left{
+      background: radial-gradient(600px 200px at 0% 50%, var(--danger2), transparent 60%);
+    }
+    .tint.right{
+      background: radial-gradient(600px 200px at 100% 50%, var(--ok2), transparent 60%);
+    }
+
+    .pill{
+      position:absolute;
+      top: 6px;
+      left: 6px; /* JS가 transform으로 이동 */
+      height: 40px;
+      width: 132px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(230,235,245,.16);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0 14px;
+      font-weight: 900;
+      letter-spacing: -.2px;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action: none; /* pill 자체는 가로 드래그 */
+      transform: translateX(0px);
+      will-change: transform, background, border-color;
+      transition: transform .18s cubic-bezier(.2,.9,.25,1.0), background .14s linear, border-color .14s linear;
+      z-index: 2;
+    }
+    .pill.dragging{ transition: none !important; }
+
+    .pill.neutral{ background: rgba(230,235,245,.16); border-color: rgba(255,255,255,.14); }
+    .pill.dont{ background: rgba(255,90,90,.22); border-color: rgba(255,90,90,.35); }
+    .pill.know{ background: rgba(80,220,140,.22); border-color: rgba(80,220,140,.35); }
+
+    .meaning{
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      font-size: 13px;
+      color: rgba(255,255,255,.85);
+      line-height: 1.35;
+      text-align:center;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity .18s ease, transform .18s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meaning.on{
+      opacity: 1;
+      transform: translateY(0px);
+    }
+
+    /* 뜻이 길면 자동 축소(Phase 1: 간단) */
+    .meaning.small{ font-size: 12px; }
+    .meaning.smaller{ font-size: 11px; }
+
+    .phase-note{
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted2);
+      text-align:center;
+    }
   </style>
 </head>
 
@@ -248,7 +332,6 @@
   </div>
 
   <main class="app">
-    <!-- Top bar -->
     <div class="topbar">
       <div class="titlebox">
         <div class="title">오늘의 단어</div>
@@ -257,21 +340,46 @@
       <sl-button id="btnCharge" variant="primary" size="small">충전하기</sl-button>
     </div>
 
-    <!-- List/Empty -->
     <section class="section">
+      <!-- 0개 상태 -->
       <div id="emptyState" class="empty">
         <div class="big">아직 오늘의 단어가 0개예요</div>
-        <div class="small">상단의 <b>충전하기</b>를 눌러 오늘의 단어를 추가해 주세요.<br/>Phase 0에서는 +10개 더미 단어를 넣습니다.</div>
+        <div class="small">상단의 <b>충전하기</b>를 눌러 오늘의 단어를 추가해 주세요.<br/>Phase 1에서는 “첫 번째 단어 1개”만 트랙으로 보여줘요.</div>
       </div>
 
-      <div id="list" class="list" style="display:none;"></div>
+      <!-- Phase 1: Track 1 -->
+      <div id="trackWrap" class="track-wrap">
+        <div class="track-top">
+          <div class="track-wordline">
+            <div class="track-word" id="wordText">word</div>
+            <div class="track-meta" id="wordMeta">1 / 1 (Phase 1)</div>
+          </div>
+          <div class="track-meta" id="statusText">미선택</div>
+        </div>
+
+        <div class="labels">
+          <span id="lblLeft">몰라요</span>
+          <span id="lblRight">알아요</span>
+        </div>
+
+        <div id="track" class="track">
+          <div class="tint left" id="tintLeft"></div>
+          <div class="tint right" id="tintRight"></div>
+          <div class="zone left" id="zoneLeft" aria-label="몰라요 영역"></div>
+          <div class="zone right" id="zoneRight" aria-label="알아요 영역"></div>
+          <div id="pill" class="pill neutral" role="button" aria-label="단어 슬라이드">WORD</div>
+        </div>
+
+        <div id="meaning" class="meaning" aria-live="polite"></div>
+
+        <div class="phase-note">Phase 2에서 20개 트랙 + localStorage 저장 + 제출 플로우로 확장합니다.</div>
+      </div>
     </section>
   </main>
 
-  <!-- Footer (제출하기: Phase 0에서는 비활성 UI만) -->
   <footer class="footer">
     <div class="footer-inner">
-      <sl-button variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 1~)</sl-button>
+      <sl-button variant="neutral" outline disabled style="width:100%;">제출하기 (Phase 2~)</sl-button>
     </div>
   </footer>
 
@@ -304,11 +412,11 @@
 
   <script>
     /* =========================
-       Phase 0: localStorage keys
+       Phase 1: localStorage keys
     ========================= */
     const LS_KEY = "vocab_slide_v0";
+
     const todayKey = (() => {
-      // "오늘" 기준은 로컬 날짜(학생 기기)
       const d = new Date();
       const y = d.getFullYear();
       const m = String(d.getMonth()+1).padStart(2,"0");
@@ -327,22 +435,21 @@
     function loadState(){
       try{
         const raw = localStorage.getItem(LS_KEY);
-        if(!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+        if(!raw) return { day: todayKey, chargeUsed: 0, words: [], tipUsed: [] };
         const parsed = JSON.parse(raw);
 
-        // 날짜 바뀌면(자정 이후) 초기화: Phase 0에서는 간단 리셋
         if(parsed.day !== todayKey){
-          return { day: todayKey, chargeUsed: 0, words: [] };
+          return { day: todayKey, chargeUsed: 0, words: [], tipUsed: [] };
         }
 
-        // 안전 기본값
         return {
           day: parsed.day || todayKey,
           chargeUsed: Number(parsed.chargeUsed || 0),
-          words: Array.isArray(parsed.words) ? parsed.words : []
+          words: Array.isArray(parsed.words) ? parsed.words : [],
+          tipUsed: Array.isArray(parsed.tipUsed) ? parsed.tipUsed : []
         };
       }catch(e){
-        return { day: todayKey, chargeUsed: 0, words: [] };
+        return { day: todayKey, chargeUsed: 0, words: [], tipUsed: [] };
       }
     }
 
@@ -350,11 +457,7 @@
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     }
 
-    /* =========================
-       Dummy words (Phase 0)
-    ========================= */
     function makeDummyWords(n){
-      // 의미 없는 더미라도 UI 확인용으로 길이 다양하게 섞음
       const pool = [
         ["abandon", "버리다, 포기하다"],
         ["accurate", "정확한"],
@@ -385,7 +488,7 @@
           id: `${base}-${i}-${Math.random().toString(16).slice(2,8)}`,
           word: pick[0],
           meaning: pick[1],
-          status: "unknown"
+          status: "unknown" // unknown | know | dont
         });
       }
       return out;
@@ -399,10 +502,8 @@
 
     const subline = document.getElementById("subline");
     const emptyState = document.getElementById("emptyState");
-    const listEl = document.getElementById("list");
 
     const btnCharge = document.getElementById("btnCharge");
-
     const dlgCharge = document.getElementById("dlgCharge");
     const tipText = document.getElementById("tipText");
     const remainText = document.getElementById("remainText");
@@ -413,6 +514,23 @@
     const barFill = document.getElementById("barFill");
     const overlaySub = document.getElementById("overlaySub");
 
+    // Track UI
+    const trackWrap = document.getElementById("trackWrap");
+    const wordText = document.getElementById("wordText");
+    const wordMeta = document.getElementById("wordMeta");
+    const statusText = document.getElementById("statusText");
+
+    const lblLeft = document.getElementById("lblLeft");
+    const lblRight = document.getElementById("lblRight");
+
+    const track = document.getElementById("track");
+    const pill = document.getElementById("pill");
+    const zoneLeft = document.getElementById("zoneLeft");
+    const zoneRight = document.getElementById("zoneRight");
+    const tintLeft = document.getElementById("tintLeft");
+    const tintRight = document.getElementById("tintRight");
+    const meaning = document.getElementById("meaning");
+
     /* =========================
        Helpers
     ========================= */
@@ -422,53 +540,15 @@
     }
 
     function pickTip(state){
-      // "하루 같은 TIP 중복 없음"을 localStorage로 단순 구현:
-      // day별로 tipIndexUsed 배열을 저장하고, 남은 것 중 랜덤 선택
       const used = new Set(state.tipUsed || []);
       const candidates = [];
       for(let i=0;i<TIPS.length;i++){
         if(!used.has(i)) candidates.push(i);
       }
-      // 다 썼으면 리셋(Phase 0: 단순)
       const pickFrom = candidates.length ? candidates : [...Array(TIPS.length)].map((_,i)=>i);
       const idx = pickFrom[Math.floor(Math.random()*pickFrom.length)];
       state.tipUsed = Array.from(new Set([...(state.tipUsed||[]), idx]));
       return TIPS[idx];
-    }
-
-    function render(state){
-      const count = state.words.length;
-      subline.textContent = count === 0
-        ? "오늘은 0개로 시작해요. 충전하기로 추가하세요."
-        : `오늘의 단어 ${count}개 (Phase 0: 트랙 대신 리스트로 표시)`;
-
-      if(count === 0){
-        emptyState.style.display = "flex";
-        listEl.style.display = "none";
-      }else{
-        emptyState.style.display = "none";
-        listEl.style.display = "flex";
-        listEl.innerHTML = "";
-        state.words.forEach(w=>{
-          const row = document.createElement("div");
-          row.className = "row";
-          row.innerHTML = `
-            <div>
-              <div class="word">${escapeHtml(w.word)}</div>
-              <div class="meaning">${escapeHtml(w.meaning)}</div>
-            </div>
-            <div style="font-size:12px;color:rgba(255,255,255,.55);">미선택</div>
-          `;
-          listEl.appendChild(row);
-        });
-      }
-
-      // charge remain
-      const remain = Math.max(0, 3 - state.chargeUsed);
-      remainText.textContent = `${remain}/3`;
-
-      // 충전 버튼 비활성(3회 초과 방지)
-      btnCharge.disabled = remain <= 0;
     }
 
     function escapeHtml(s){
@@ -485,13 +565,11 @@
       barFill.style.width = "0%";
       overlaySub.textContent = "단어를 추가하고 있어요…";
 
-      // 짧은 “차오름” 연출 (약 900ms)
       const start = performance.now();
       const dur = 900;
       return new Promise(resolve=>{
         function tick(now){
           const t = Math.min(1, (now - start)/dur);
-          // 약간의 이징 느낌(너무 과하지 않게)
           const eased = 1 - Math.pow(1 - t, 2.2);
           barFill.style.width = Math.round(eased * 100) + "%";
           if(t < 1) requestAnimationFrame(tick);
@@ -507,25 +585,272 @@
     }
 
     /* =========================
-       Boot
+       Phase 1: Track logic (1 item)
     ========================= */
     let state = loadState();
-    render(state);
+    let activeIndex = 0; // Phase 1: 첫 번째 단어만
+
+    // pill 이동 계산용
+    let trackRect = null;
+    let minX = 0;
+    let maxX = 0;
+    let currentX = 0; // px
+    let isDragging = false;
+    let pointerId = null;
+    let startClientX = 0;
+    let startX = 0;
+
+    function computeBounds(){
+      trackRect = track.getBoundingClientRect();
+      const pillW = pill.getBoundingClientRect().width;
+      const padding = 6; // pill left 기준값과 맞춤
+      minX = 0;
+      maxX = Math.max(0, (trackRect.width - pillW - padding*2));
+    }
+
+    function statusToX(st){
+      if(st === "dont") return minX;
+      if(st === "know") return maxX;
+      return (minX + maxX) / 2; // unknown은 중앙
+    }
+
+    function xToProgress(x){
+      if(maxX === minX) return 0.5;
+      return (x - minX) / (maxX - minX); // 0..1
+    }
+
+    function applyVisualByProgress(p){
+      // p: 0(left) ~ 1(right)
+      const leftStrength = Math.max(0, (0.5 - p) / 0.5);   // 0..1
+      const rightStrength = Math.max(0, (p - 0.5) / 0.5);  // 0..1
+
+      tintLeft.style.opacity = String(Math.min(1, leftStrength * 0.9));
+      tintRight.style.opacity = String(Math.min(1, rightStrength * 0.9));
+
+      // 라벨 비활성 느낌
+      // left로 갈수록 right가 꺼지고, right로 갈수록 left가 꺼짐
+      const rightOff = p < 0.5 ? (0.26 + (0.34 * (p/0.5))) : 0.60; // 대충
+      const leftOff  = p > 0.5 ? (0.26 + (0.34 * ((1-p)/0.5))) : 0.60;
+
+      // class 토글은 “확실히 고정된 상태”에서만 (snapped)
+      // 드래그 중에는 opacity만 자연스럽게
+      lblLeft.style.opacity = String(Math.max(0.26, leftOff));
+      lblRight.style.opacity = String(Math.max(0.26, rightOff));
+    }
+
+    function applyPillClassByStatus(st){
+      pill.classList.remove("neutral","dont","know");
+      if(st === "dont") pill.classList.add("dont");
+      else if(st === "know") pill.classList.add("know");
+      else pill.classList.add("neutral");
+    }
+
+    function setMeaning(text, on){
+      meaning.textContent = text || "";
+      meaning.classList.toggle("on", !!on);
+
+      // 길면 폰트 살짝 줄이기(Phase 1: 단순)
+      meaning.classList.remove("small","smaller");
+      if(!text) return;
+      if(text.length >= 16) meaning.classList.add("small");
+      if(text.length >= 22) meaning.classList.add("smaller");
+    }
+
+    function setStatusText(st){
+      if(st === "dont") statusText.textContent = "몰라요";
+      else if(st === "know") statusText.textContent = "알아요";
+      else statusText.textContent = "미선택";
+    }
+
+    function setWordUI(wordObj){
+      wordText.textContent = wordObj ? wordObj.word : "";
+      pill.textContent = wordObj ? wordObj.word.toUpperCase() : "";
+
+      const total = state.words.length || 0;
+      wordMeta.textContent = `1 / ${Math.max(1,total)} (Phase 1)`;
+
+      const st = (wordObj && wordObj.status) ? wordObj.status : "unknown";
+      setStatusText(st);
+      applyPillClassByStatus(st);
+
+      // 뜻: 고정된 상태에서만 노출
+      if(wordObj && (st === "dont" || st === "know")){
+        setMeaning(wordObj.meaning, true);
+      }else{
+        setMeaning("", false);
+      }
+    }
+
+    function movePillToX(x, snap=false){
+      const clamped = Math.max(minX, Math.min(maxX, x));
+      currentX = clamped;
+      if(snap){
+        // snap 이동은 transition 켜진 상태
+        pill.style.transform = `translateX(${clamped}px)`;
+      }else{
+        // 드래그 중: transition off
+        pill.style.transform = `translateX(${clamped}px)`;
+      }
+      applyVisualByProgress(xToProgress(clamped));
+    }
+
+    function snapByX(x){
+      const p = xToProgress(x);
+
+      // 중앙 deadzone: unknown 유지
+      // (너무 예민하면 UX가 안 좋아서 0.35~0.65를 unknown으로 잡음)
+      let st = "unknown";
+      if(p <= 0.35) st = "dont";
+      else if(p >= 0.65) st = "know";
+
+      snapToStatus(st);
+    }
+
+    function snapToStatus(st){
+      const w = state.words[activeIndex];
+      if(!w) return;
+
+      w.status = st;
+      saveState(state);
+
+      applyPillClassByStatus(st);
+      setStatusText(st);
+
+      // 라벨 off 느낌(고정 시)
+      if(st === "dont"){
+        lblRight.classList.add("off");
+        lblLeft.classList.remove("off");
+      }else if(st === "know"){
+        lblLeft.classList.add("off");
+        lblRight.classList.remove("off");
+      }else{
+        lblLeft.classList.remove("off");
+        lblRight.classList.remove("off");
+        // 드래그 중 적용했던 opacity를 기본으로
+        lblLeft.style.opacity = "";
+        lblRight.style.opacity = "";
+      }
+
+      // 뜻 노출: 고정되는 순간
+      if(st === "dont" || st === "know"){
+        setMeaning(w.meaning, true);
+      }else{
+        setMeaning("", false);
+      }
+
+      // 스냅 이동
+      const targetX = statusToX(st);
+      movePillToX(targetX, true);
+    }
+
+    function render(){
+      const count = state.words.length;
+
+      subline.textContent = count === 0
+        ? "오늘은 0개로 시작해요. 충전하기로 추가하세요."
+        : `오늘의 단어 ${count}개 (Phase 1: 첫 번째 단어 1개 트랙)`;
+
+      // 남은 충전
+      const remain = Math.max(0, 3 - state.chargeUsed);
+      remainText.textContent = `${remain}/3`;
+      btnCharge.disabled = remain <= 0;
+
+      if(count === 0){
+        emptyState.style.display = "flex";
+        trackWrap.style.display = "none";
+        return;
+      }
+
+      emptyState.style.display = "none";
+      trackWrap.style.display = "block";
+
+      const wordObj = state.words[activeIndex];
+      setWordUI(wordObj);
+
+      // bounds 계산 후 초기 위치로 이동
+      // (레이아웃 완료 후)
+      requestAnimationFrame(()=>{
+        computeBounds();
+        const initX = statusToX(wordObj.status || "unknown");
+        // unknown은 중앙이므로 tint/opacity도 맞춰줌
+        movePillToX(initX, true);
+        // 라벨 off 상태 갱신
+        if(wordObj.status === "dont"){
+          lblRight.classList.add("off"); lblLeft.classList.remove("off");
+        }else if(wordObj.status === "know"){
+          lblLeft.classList.add("off"); lblRight.classList.remove("off");
+        }else{
+          lblLeft.classList.remove("off"); lblRight.classList.remove("off");
+        }
+      });
+    }
 
     /* =========================
-       Events
+       Track Events
+    ========================= */
+    function onPointerDown(e){
+      if(!state.words[activeIndex]) return;
+
+      isDragging = true;
+      pointerId = e.pointerId;
+      pill.setPointerCapture(pointerId);
+      pill.classList.add("dragging");
+
+      computeBounds();
+      startClientX = e.clientX;
+      startX = currentX;
+
+      // 드래그 중 의미(뜻) 켜져 있어도 유지 (단어는 사라지지 않으니까)
+      e.preventDefault();
+    }
+
+    function onPointerMove(e){
+      if(!isDragging || e.pointerId !== pointerId) return;
+
+      const dx = e.clientX - startClientX;
+      movePillToX(startX + dx, false);
+      e.preventDefault();
+    }
+
+    function onPointerUp(e){
+      if(!isDragging || e.pointerId !== pointerId) return;
+
+      isDragging = false;
+      pill.classList.remove("dragging");
+
+      // 놓는 순간 스냅
+      snapByX(currentX);
+      e.preventDefault();
+    }
+
+    pill.addEventListener("pointerdown", onPointerDown);
+    pill.addEventListener("pointermove", onPointerMove);
+    pill.addEventListener("pointerup", onPointerUp);
+    pill.addEventListener("pointercancel", onPointerUp);
+
+    // 클릭/탭 스냅(좌/우)
+    zoneLeft.addEventListener("click", ()=> snapToStatus("dont"));
+    zoneRight.addEventListener("click", ()=> snapToStatus("know"));
+
+    // 리사이즈 대응
+    window.addEventListener("resize", ()=>{
+      if(state.words.length){
+        computeBounds();
+        const w = state.words[activeIndex];
+        movePillToX(statusToX(w.status || "unknown"), true);
+      }
+    });
+
+    /* =========================
+       Charge dialog events
     ========================= */
     btnCharge.addEventListener("click", ()=>{
-      state = loadState(); // 최신화
-      // tip
+      state = loadState();
       const tip = pickTip(state);
       tipText.textContent = "TIP: " + tip;
 
-      // remain text
       const remain = Math.max(0, 3 - state.chargeUsed);
       remainText.textContent = `${remain}/3`;
-
-      // 버튼 상태
       dlgChargeDo.disabled = remain <= 0;
 
       dlgCharge.show();
@@ -543,18 +868,21 @@
         return;
       }
 
-      // UX: 모달 닫고 오버레이 “차오름”
       dlgCharge.hide();
       await runChargeAnimation();
 
-      // 실제 충전: +10 더미 추가
       state.words = state.words.concat(makeDummyWords(10));
       state.chargeUsed += 1;
       saveState(state);
 
-      render(state);
+      render();
       showToast(`충전 완료! +10개 추가 (남은 ${Math.max(0,3-state.chargeUsed)}/3)`);
     });
+
+    /* =========================
+       Boot
+    ========================= */
+    render();
   </script>
 </body>
 </html>
