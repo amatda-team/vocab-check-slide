@@ -12,7 +12,7 @@
   <style>
     :root{
       --app-max: 520px;
-
+      --slow-ms: 1500ms; /* ✅ 여기만 바꾸면 1.5초/2초 조절 가능 */
       /* Theme */
       --bg0: #070a10;
       --bg1: #0b0f14;
@@ -252,8 +252,12 @@
     /* ✅ (4) 초기 로딩 연출용: 중앙 배치 강제 + 저장상태로 '슥~' 이동 */
     .pill.booting{ transition: none !important; }
     .pill.slow{
-      transition: transform .55s cubic-bezier(.2,.9,.25,1), background .10s linear, border-color .10s linear !important;
-    }
+  transition:
+    transform var(--slow-ms) cubic-bezier(.2,.9,.25,1),
+    background .10s linear,
+    border-color .10s linear !important;
+}
+
 
     /* Footer CTA */
     .footer{
@@ -643,33 +647,52 @@
         if(t.length >= 22) slotEl.classList.add("smaller");
       }
 
-      function init(){
+      let lastW = 0;
+      
+      function init(mode){
         computeBounds();
-
+      
+        const trackW = el.getBoundingClientRect().width;
+        const widthChanged = Math.abs(trackW - lastW) > 2; // ✅ width가 의미 있게 바뀔 때만
+        lastW = trackW;
+      
         const st = wordObj.status || "unknown";
-
-        // ✅ (4) 초기 로딩 플래시 제거:
-        // - 무조건 중앙에서 1프레임 먼저 그린 뒤
-        // - 저장된 상태(dont/know)가 있으면 '슬로우 모션'으로 이동
-        pill.classList.add("booting");           // transition off
-        setTrackClass("unknown");               // 라벨 보이게(중앙 시작 인상)
-        moveTo(statusToX("unknown"), true);     // 중앙 렌더
-
+      
+        // ✅ resize로 들어왔는데 width 변화가 없으면 아무것도 안 함 (스크롤 resize 방지 핵심)
+        if(mode === "resize" && !widthChanged){
+          return;
+        }
+      
+        if(mode === "resize"){
+          // ✅ 리사이즈는 '연출' 금지: 현재 상태 위치만 조용히 맞춤
+          pill.classList.add("booting");     // transition off
+          setTrackClass(st);
+          moveTo(statusToX(st), true);
+          requestAnimationFrame(()=> pill.classList.remove("booting"));
+          return;
+        }
+      
+        // ====== boot(최초 로드)만 연출 ======
+        pill.classList.add("booting");
+        setTrackClass("unknown");
+        moveTo(statusToX("unknown"), true);
+      
         requestAnimationFrame(()=>{
-          pill.classList.remove("booting");     // transition on
-          // 저장상태가 중앙이 아니면 슥~ 이동
+          pill.classList.remove("booting");
           if(st !== "unknown"){
             setTrackClass(st);
             pill.classList.add("slow");
             moveTo(statusToX(st), true);
-            setTimeout(()=> pill.classList.remove("slow"), 650);
+            // ✅ CSS 변수 시간에 맞춰 제거 (1500ms면 1600쯤)
+            const slowMs = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--slow-ms")) || 1500;
+            setTimeout(()=> pill.classList.remove("slow"), slowMs + 120);
           }else{
-            // unknown이면 그대로
             setTrackClass("unknown");
             moveTo(statusToX("unknown"), true);
           }
         });
       }
+
 
       // drag
       pill.addEventListener("pointerdown", (e)=>{
@@ -713,9 +736,16 @@
       zoneC.addEventListener("click", ()=> applyStatus("unknown"));
 
       // resize safe
-      window.addEventListener("resize", ()=> init(), { passive:true });
+      // ✅ 최초 로드: boot 연출
+        requestAnimationFrame(()=> init("boot"));
+        
+        // ✅ 리사이즈: width 변화 있을 때만 조용히 보정
+        let resizeT = null;
+        window.addEventListener("resize", ()=>{
+          clearTimeout(resizeT);
+          resizeT = setTimeout(()=> init("resize"), 80);
+        }, { passive:true });
 
-      requestAnimationFrame(init);
       return el;
     }
 
