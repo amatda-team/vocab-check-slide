@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Signal Voca (Slide)</title>
+  <title>신호등보카 (Slide)</title>
 
   <!-- Shoelace (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/light.css">
@@ -13,16 +13,15 @@
     :root{
       --app-max: 520px;
 
-      /* ✅ Boot motion controls (여기만 조절하면 됨) */
-      --boot-hold-ms: 600ms;     /* x: 중앙 홀드 */
-      --boot-move-ms: 3000ms;    /* y: 이동 */
+      /* ✅ Boot motion controls */
+      --boot-hold-ms: 600ms;
+      --boot-move-ms: 2600ms;
       --boot-ease: cubic-bezier(.2,.9,.25,1);
 
-      /* ✅ Yellow(주황) 의미 토글 연출 */
-      --yellow-word-hold-ms: 120ms;     /* 클릭 후 살짝 텀 */
-      --yellow-swap-ms: 220ms;          /* word ↔ meaning 텍스트 페이드 */
-      --yellow-width-ms: 320ms;         /* pill width 늘고 줄기 */
-      --yellow-keep-meaning-ms: 520ms;  /* meaning 보이는 시간 */
+      /* ✅ Peek controls */
+      --peek-in-ms: 120ms;
+      --peek-hold-ms: 520ms;
+      --peek-out-ms: 260ms;
 
       /* Theme */
       --bg0: #070a10;
@@ -44,15 +43,18 @@
       --pad: 12px;
       --lr-pad: 12px;
 
-      /* Signal colors */
-      --sig-red:   255,  90,  90;
-      --sig-yellow:255, 176,  64; /* 주황 */
-      --sig-green:  80, 220, 140;
+      /* Lights */
+      --red:   255, 90,  90;
+      --green:  80, 220, 140;
+      --amber: 255, 170,  70;
+
+      /* Unknown pill transparency (yellow light recognition) */
+      --unknown-pill-alpha: .14;
+      --unknown-pill-bd-alpha: .10;
     }
 
     *{ box-sizing: border-box; }
 
-    /* ✅ overscroll white flash 방지 */
     html{ background: var(--bg0); }
     body{
       margin:0;
@@ -73,7 +75,6 @@
       transform: translateZ(0);
     }
 
-    /* iOS: prevent custom element flash */
     sl-dialog:not(:defined){ display:none !important; }
     sl-alert:not(:defined){ display:none !important; }
     sl-button:not(:defined){ visibility:hidden; }
@@ -138,15 +139,11 @@
       border: 1px solid var(--line);
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
-
       transition: opacity .16s ease, transform .16s ease;
     }
-    .track.preboot{
-      opacity: 0;
-      transform: translateY(2px);
-    }
+    .track.preboot{ opacity: 0; transform: translateY(2px); }
 
-    /* tint continuous */
+    /* Continuous tints (red/green + amber ambiance) */
     .tint{
       position:absolute;
       inset:0;
@@ -155,76 +152,58 @@
       transition: opacity .10s linear;
     }
     .tint.left{
-      background: radial-gradient(600px 240px at 0% 55%, rgba(var(--sig-red), .22), transparent 62%);
+      background: radial-gradient(640px 260px at 0% 55%, rgba(255,90,90,.22), transparent 62%);
     }
     .tint.right{
-      background: radial-gradient(600px 240px at 100% 55%, rgba(var(--sig-green), .22), transparent 62%);
+      background: radial-gradient(640px 260px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
+    }
+    /* ✅ yellow도 좌우로 은은하게 */
+    .tint.amberL{
+      background: radial-gradient(640px 260px at 0% 55%, rgba(255,170,70,.14), transparent 62%);
+    }
+    .tint.amberR{
+      background: radial-gradient(640px 260px at 100% 55%, rgba(255,170,70,.14), transparent 62%);
     }
 
-    /* ✅ Signal lights (replace labels) */
-    .signals{
+    /* Lights layer */
+    .lights{
       position:absolute;
       inset:0;
       pointer-events:none;
       z-index: 1;
     }
-
-    .sigLR{
+    .light{
       position:absolute;
-      left: var(--lr-pad);
-      right: var(--lr-pad);
       top: 50%;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
       transform: translateY(-50%);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      opacity: 1;
-      transition: opacity .14s ease;
+      opacity: .55; /* will be overridden inline */
+      filter: saturate(1.05);
     }
-
-    .sigDot{
-      width: 12px;
-      height: 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.10);
-      box-shadow: 0 0 0 rgba(255,255,255,0);
-      opacity: .9;
-      transform: translateZ(0);
-    }
-    .sigDot.red{
-      background: rgba(var(--sig-red), .20);
-      border-color: rgba(var(--sig-red), .35);
-      box-shadow:
-        0 0 18px rgba(var(--sig-red), .35),
-        0 0 44px rgba(var(--sig-red), .14);
-    }
-    .sigDot.green{
-      background: rgba(var(--sig-green), .20);
-      border-color: rgba(var(--sig-green), .35);
-      box-shadow:
-        0 0 18px rgba(var(--sig-green), .35),
-        0 0 44px rgba(var(--sig-green), .14);
-    }
-
-    /* yellow hint under pill (z축: pill 아래, meaning 위/아래 상관없게) */
-    .sigYellowUnder{
-      position:absolute;
+    .light.left{ left: var(--lr-pad); }
+    .light.right{ right: var(--lr-pad); }
+    /* yellow light "under pill" 느낌: 가운데 + z축(뒤) */
+    .light.center{
       left: 50%;
-      top: 50%;
       transform: translate(-50%, -50%);
-      width: 54px;
-      height: 22px;
-      border-radius: 999px;
-      background: radial-gradient(30px 18px at 50% 50%, rgba(var(--sig-yellow), .36), rgba(var(--sig-yellow), .08) 60%, transparent 72%);
-      filter: blur(.2px);
-      opacity: .75;
-      transition: opacity .16s ease, transform .16s ease;
-      z-index: 1;
-      pointer-events:none;
+      width: 18px;
+      height: 18px;
     }
 
-    /* meaning slots */
+    .light::after{
+      content:"";
+      position:absolute;
+      inset:-18px;
+      border-radius: 999px;
+      opacity: .65;
+      filter: blur(10px);
+      background: radial-gradient(circle, rgba(255,255,255,.35), transparent 60%);
+      mix-blend-mode: screen;
+    }
+
+    /* Meaning slots */
     .meaning-slot{
       position:absolute;
       top: 50%;
@@ -239,22 +218,19 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+
       font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.2px;
       color: rgba(255,255,255,.78);
       z-index: 2;
     }
-    .meaning-left{
-      left: 0;
-      text-align:left;
-    }
-    .meaning-right{
-      right: 0;
-      text-align:right;
-    }
+    .meaning-left{ left: 0; text-align:left; }
+    .meaning-right{ right: 0; text-align:right; }
     .meaning-slot.small{ font-size: 13px; }
     .meaning-slot.smaller{ font-size: 12px; }
 
-    /* click zones */
+    /* Click zones */
     .zone{
       position:absolute;
       top:0; bottom:0;
@@ -265,12 +241,12 @@
     .zone.center{ left:33%; width:34%; }
     .zone.right{ right:0; width:34%; }
 
-    /* pill */
+    /* Pill (center-anchored so width expands symmetrically) */
     .pill{
       position:absolute;
       top: 50%;
-      transform: translateY(-50%) translateX(0px);
-      left: 10px;
+      left: 50%;
+      transform: translate(-50%, -50%) translateX(0px);
       height: var(--pill-h);
       width: var(--pill-w);
       border-radius: var(--pill-radius);
@@ -283,12 +259,10 @@
       justify-content:center;
       padding: 0 14px;
 
-      font-weight: 900;
-      letter-spacing: -.2px;
-      color: rgba(255,255,255,.92);
-
       user-select:none;
       -webkit-user-select:none;
+
+      /* 기본은 세로 스크롤 허용 */
       touch-action: pan-y;
 
       will-change: transform, background, border-color, width;
@@ -296,7 +270,7 @@
         transform .18s cubic-bezier(.2,.9,.25,1),
         background .10s linear,
         border-color .10s linear,
-        width var(--yellow-width-ms) ease;
+        width .22s ease;
 
       z-index: 4;
       white-space: nowrap;
@@ -304,40 +278,39 @@
       text-overflow: ellipsis;
     }
 
-    .pill .pillText{
-      display:inline-block;
-      will-change: opacity, transform;
-      transition: opacity var(--yellow-swap-ms) ease, transform var(--yellow-swap-ms) ease;
-    }
-    .pill.swap-out .pillText{
-      opacity: 0;
-      transform: translateY(1px);
-    }
-    .pill.swap-in .pillText{
-      opacity: 1;
-      transform: translateY(0);
-    }
-
     .pill.dragging{
       transition:none !important;
       touch-action: none;
     }
-
     .pill.booting{ transition: none !important; }
 
-    /* State classes */
-    .track.is-unknown .sigLR{ opacity: 1; }
-    .track.is-red .sigLR,
-    .track.is-green .sigLR,
-    .track.is-yellow .sigLR{ opacity: 0; }
+    /* Text inside pill */
+    .pill-text{
+      display:block;
+      width: 100%;
+      text-align:center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
 
-    .track.is-unknown .sigYellowUnder{ opacity: .75; }
-    .track.is-red .sigYellowUnder,
-    .track.is-green .sigYellowUnder,
-    .track.is-yellow .sigYellowUnder{ opacity: 0; }
+      /* default(word) */
+      font-weight: 900;
+      letter-spacing: -.2px;
+      color: rgba(255,255,255,.92);
+      transition: opacity .12s ease;
+    }
 
-    /* In yellow: meaning slots hidden (yellow는 pill 안에서 의미 표시) */
-    .track.is-yellow .meaning-slot{ opacity: 0 !important; transform: translateY(-50%) translateX(0) !important; }
+    /* meaning style inside pill (yellow peek) */
+    .pill.is-meaning .pill-text{
+      font-weight: 600;
+      color: rgba(255,255,255,.78);
+    }
+
+    /* Unknown pill more transparent to reveal center amber light */
+    .track.is-unknown .pill{
+      background: rgba(230,235,245,var(--unknown-pill-alpha));
+      border-color: rgba(255,255,255,var(--unknown-pill-bd-alpha));
+    }
 
     /* Footer */
     .footer{
@@ -376,7 +349,6 @@
     }
     sl-button::part(base){ border-radius: 14px; }
 
-    /* Charge modal simplified */
     .charge-msg{
       font-size: 14px;
       color: rgba(255,255,255,.86);
@@ -388,24 +360,20 @@
       color: var(--muted);
       margin-bottom: 14px;
     }
-    .btn-row{
-      display:flex;
-      gap: 10px;
-    }
+    .btn-row{ display:flex; gap: 10px; }
     .btn-row sl-button{ flex: 1 1 0; }
     .btn-row sl-button::part(base){ width: 100%; }
 
-    /* Hidden measurer */
+    /* hidden measurer */
     .measure{
       position: absolute;
-      left:-9999px; top:-9999px;
-      visibility:hidden;
-      white-space:nowrap;
-      font-weight: 900;
+      left: -9999px;
+      top: -9999px;
+      visibility: hidden;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
       letter-spacing: -.2px;
-      font-family: inherit;
-      font-size: 16px;
-      padding: 0 14px;
     }
   </style>
 </head>
@@ -442,750 +410,787 @@
   <sl-dialog id="dlgCharge" label="충전하기">
     <div class="charge-msg">한 번에 10개씩 충전이 가능해요</div>
     <div class="charge-remain">오늘 남은 횟수 <b id="remainText">3/3</b></div>
+
     <div class="btn-row">
       <sl-button id="dlgChargeDo" variant="primary">충전하기</sl-button>
       <sl-button id="dlgChargeClose" variant="default" outline>닫기</sl-button>
     </div>
   </sl-dialog>
 
-  <!-- measurer -->
-  <span id="measure" class="measure"></span>
+  <span id="measurer" class="measure"></span>
 
-<script>
-/* =========================
-   Storage / State
-========================= */
-const LS_KEY = "vocab_slide_v1_signal";
-const todayKey = (() => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-})();
+  <script>
+  /* =========================
+     Storage / State
+  ========================= */
+  const LS_KEY = "signal_vocab_v1"; // ✅ 새 키(혼선 방지)
+  const todayKey = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
 
-/**
- * status: "unknown" | "red" | "yellow" | "green"
- * - red   : 왼쪽 확정 (기존 dont)
- * - green : 오른쪽 확정 (기존 know)
- * - yellow: 중앙 확정(주황), 의미 토글은 pill 내부에서
- */
-function loadState() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { day: todayKey, chargeUsed: 0, words: [] };
-    const s = JSON.parse(raw);
-    if (s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
-    return {
-      day: s.day || todayKey,
-      chargeUsed: Number(s.chargeUsed || 0),
-      words: Array.isArray(s.words) ? s.words : []
-    };
-  } catch (e) {
-    return { day: todayKey, chargeUsed: 0, words: [] };
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { day: todayKey, chargeUsed: 0, words: [] };
+      const s = JSON.parse(raw);
+      if (s.day !== todayKey) return { day: todayKey, chargeUsed: 0, words: [] };
+      return {
+        day: s.day || todayKey,
+        chargeUsed: Number(s.chargeUsed || 0),
+        words: Array.isArray(s.words) ? s.words : []
+      };
+    } catch (e) {
+      return { day: todayKey, chargeUsed: 0, words: [] };
+    }
   }
-}
-
-function saveState(state) {
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
-}
-
-function makeDummyWords(n) {
-  const pool = [
-    ["abandon", "버리다, 포기하다"],
-    ["accurate", "정확한"],
-    ["benevolent", "자비로운, 선의의"],
-    ["consequence", "결과, 영향"],
-    ["diligent", "성실한"],
-    ["elaborate", "정교한, 상세히 설명하다"],
-    ["friction", "마찰, 충돌"],
-    ["gratitude", "감사"],
-    ["hesitate", "망설이다"],
-    ["inevitable", "피할 수 없는"]
-  ];
-  const out = [];
-  const base = Date.now().toString(36);
-  for (let i = 0; i < n; i++) {
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    out.push({
-      id: `${base}-${i}-${Math.random().toString(16).slice(2, 8)}`,
-      word: pick[0],
-      meaning: pick[1],
-      status: "unknown"
-    });
+  function saveState(state) {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
   }
-  return out;
-}
 
-/* =========================
-   UI refs
-========================= */
-const toast = document.getElementById("toast");
-const toastText = document.getElementById("toastText");
+  function makeDummyWords(n) {
+    const pool = [
+      ["abandon", "버리다, 포기하다"],
+      ["accurate", "정확한"],
+      ["benevolent", "자비로운, 선의의"],
+      ["consequence", "결과, 영향"],
+      ["diligent", "성실한"],
+      ["elaborate", "정교한, 상세히 설명하다"],
+      ["friction", "마찰, 충돌"],
+      ["gratitude", "감사"],
+      ["hesitate", "망설이다"],
+      ["inevitable", "피할 수 없는"]
+    ];
+    const out = [];
+    const base = Date.now().toString(36);
+    for (let i = 0; i < n; i++) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      out.push({
+        id: `${base}-${i}-${Math.random().toString(16).slice(2, 8)}`,
+        word: pick[0],
+        meaning: pick[1],
+        status: "unknown",      // unknown | red | yellow | green
+        touched: false          // ✅ unknown은 최초 1회 상호작용 이후 돌아오지 않음
+      });
+    }
+    return out;
+  }
 
-const btnCharge = document.getElementById("btnCharge");
-const dlgCharge = document.getElementById("dlgCharge");
-const dlgChargeDo = document.getElementById("dlgChargeDo");
-const dlgChargeClose = document.getElementById("dlgChargeClose");
-const remainText = document.getElementById("remainText");
+  /* =========================
+     UI refs
+  ========================= */
+  const toast = document.getElementById("toast");
+  const toastText = document.getElementById("toastText");
 
-const listEl = document.getElementById("list");
-const emptyState = document.getElementById("emptyState");
+  const btnCharge = document.getElementById("btnCharge");
+  const dlgCharge = document.getElementById("dlgCharge");
+  const dlgChargeDo = document.getElementById("dlgChargeDo");
+  const dlgChargeClose = document.getElementById("dlgChargeClose");
+  const remainText = document.getElementById("remainText");
 
-const measureEl = document.getElementById("measure");
+  const listEl = document.getElementById("list");
+  const emptyState = document.getElementById("emptyState");
+  const measurer = document.getElementById("measurer");
 
-function showToast(msg) {
-  toastText.textContent = msg;
-  toast.toast();
-}
+  function showToast(msg) {
+    toastText.textContent = msg;
+    toast.toast();
+  }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-/* =========================
-   Helpers
-========================= */
-function lerp(a, b, t) { return a + (b - a) * t; }
-function clamp01(x) { return Math.max(0, Math.min(1, x)); }
-function smoothstep(t) { t = clamp01(t); return t * t * (3 - 2 * t); }
-function easeInOutCubic(t){
-  t = clamp01(t);
-  return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
-}
-function parseMs(str, fallback) {
-  const s = String(str || "").trim();
-  if (!s) return fallback;
-  if (s.endsWith("ms")) return parseFloat(s);
-  if (s.endsWith("s")) return parseFloat(s) * 1000;
-  const n = parseFloat(s);
-  return Number.isFinite(n) ? n : fallback;
-}
-function getVarMs(name, fallback) {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name);
-  return parseMs(v, fallback);
-}
+  /* =========================
+     Helpers
+  ========================= */
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+  function smoothstep(t) {
+    t = clamp01(t);
+    return t * t * (3 - 2 * t);
+  }
+  function easeInOutCubic(t){
+    t = clamp01(t);
+    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+  }
 
-/* =========================
-   Colors (pill) — neutral ↔ red/green + yellow
-========================= */
-const COL_NEUTRAL_BG = [230, 235, 245, 0.22];
-const COL_NEUTRAL_BD = [255, 255, 255, 0.14];
+  function parseMs(str, fallback) {
+    const s = String(str || "").trim();
+    if (!s) return fallback;
+    if (s.endsWith("ms")) return parseFloat(s);
+    if (s.endsWith("s")) return parseFloat(s) * 1000;
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  function getVarMs(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return parseMs(v, fallback);
+  }
 
-const COL_RED_BG     = [255,  90,  90, 0.30];
-const COL_RED_BD     = [255,  90,  90, 0.32];
+  function rgba(rgb, a){
+    return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+  }
 
-const COL_GREEN_BG   = [ 80, 220, 140, 0.30];
-const COL_GREEN_BD   = [ 80, 220, 140, 0.32];
+  const RGB_RED   = [255, 90, 90];
+  const RGB_GREEN = [80, 220, 140];
+  const RGB_AMBER = [255, 170, 70];
 
-const COL_YELLOW_BG  = [255, 176,  64, 0.30];
-const COL_YELLOW_BD  = [255, 176,  64, 0.34];
+  /* =========================
+     Track builder
+  ========================= */
+  function buildTrackRow(wordObj, index, state) {
+    const el = document.createElement("div");
+    el.className = "track is-unknown preboot";
+    el.dataset.index = String(index);
 
-function mixRGBA(c1, c2, t) {
-  return [
-    Math.round(lerp(c1[0], c2[0], t)),
-    Math.round(lerp(c1[1], c2[1], t)),
-    Math.round(lerp(c1[2], c2[2], t)),
-    lerp(c1[3], c2[3], t)
-  ];
-}
-function rgbaStr(c) { return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`; }
+    el.innerHTML = `
+      <div class="tint left"></div>
+      <div class="tint right"></div>
+      <div class="tint amberL"></div>
+      <div class="tint amberR"></div>
 
-/* =========================
-   Track builder
-========================= */
-function buildTrackRow(wordObj, index, state) {
-  const el = document.createElement("div");
-  el.className = "track is-unknown preboot";
-  el.dataset.index = String(index);
-
-  el.innerHTML = `
-    <div class="tint left"></div>
-    <div class="tint right"></div>
-
-    <div class="signals">
-      <div class="sigLR">
-        <div class="sigDot red" aria-hidden="true"></div>
-        <div class="sigDot green" aria-hidden="true"></div>
+      <div class="lights">
+        <div class="light left"></div>
+        <div class="light center"></div>
+        <div class="light right"></div>
       </div>
-      <div class="sigYellowUnder" aria-hidden="true"></div>
-    </div>
 
-    <div class="meaning-slot meaning-left"></div>
-    <div class="meaning-slot meaning-right"></div>
+      <div class="meaning-slot meaning-left"></div>
+      <div class="meaning-slot meaning-right"></div>
 
-    <div class="zone left" aria-label="RED(몰라요)"></div>
-    <div class="zone center" aria-label="가운데(UNKNOWN)"></div>
-    <div class="zone right" aria-label="GREEN(알아요)"></div>
+      <div class="zone left" aria-label="왼쪽(RED)"></div>
+      <div class="zone center" aria-label="가운데(YELLOW)"></div>
+      <div class="zone right" aria-label="오른쪽(GREEN)"></div>
 
-    <div class="pill" role="button" aria-label="단어 카드">
-      <span class="pillText">${escapeHtml(wordObj.word)}</span>
-    </div>
-  `;
+      <div class="pill" role="button" aria-label="단어 필">
+        <span class="pill-text">${escapeHtml(wordObj.word)}</span>
+      </div>
+    `;
 
-  const tintL  = el.querySelector(".tint.left");
-  const tintR  = el.querySelector(".tint.right");
-  const pill   = el.querySelector(".pill");
-  const pillText = el.querySelector(".pillText");
-  const meanL  = el.querySelector(".meaning-left");
-  const meanR  = el.querySelector(".meaning-right");
-  const sigLR  = el.querySelector(".sigLR");
-  const sigY   = el.querySelector(".sigYellowUnder");
-  const zoneL  = el.querySelector(".zone.left");
-  const zoneC  = el.querySelector(".zone.center");
-  const zoneR  = el.querySelector(".zone.right");
+    const tintL   = el.querySelector(".tint.left");
+    const tintR   = el.querySelector(".tint.right");
+    const tintAL  = el.querySelector(".tint.amberL");
+    const tintAR  = el.querySelector(".tint.amberR");
 
-  meanL.textContent = wordObj.meaning || "";
-  meanR.textContent = wordObj.meaning || "";
-  applyMeaningSizing(meanL);
-  applyMeaningSizing(meanR);
+    const lightL  = el.querySelector(".light.left");
+    const lightC  = el.querySelector(".light.center");
+    const lightR  = el.querySelector(".light.right");
 
-  // Geometry
-  let minX = 0, maxX = 0, curX = 0;
+    const pill    = el.querySelector(".pill");
+    const pillTxt = el.querySelector(".pill-text");
 
-  // 중앙 데드존
-  const TH_LEFT  = 0.40;
-  const TH_RIGHT = 0.60;
+    const meanL   = el.querySelector(".meaning-left");
+    const meanR   = el.querySelector(".meaning-right");
 
-  // Intent-based drag (scroll vs drag)
-  let pending = false;
-  let intent = null;   // "drag" | "scroll" | null
-  let pid = null;
-  let downX = 0, downY = 0;
-  let startClientX = 0, startX = 0;
-  const INTENT_PX = 8;
+    const zoneL   = el.querySelector(".zone.left");
+    const zoneC   = el.querySelector(".zone.center");
+    const zoneR   = el.querySelector(".zone.right");
 
-  // Boot / animation flags
-  let bootAnimating = false;
-  let userAnimating = false; // yellow 토글 등
-  let dragOriginStatus = "unknown";
+    // meaning content (slots)
+    meanL.textContent = wordObj.meaning || "";
+    meanR.textContent = wordObj.meaning || "";
+    applyMeaningSizing(meanL);
+    applyMeaningSizing(meanR);
 
-  function computeBounds() {
-    const trackRect = el.getBoundingClientRect();
-    const pillRect = pill.getBoundingClientRect();
-    const leftPad = 10;
-    const rightPad = 10;
-    minX = 0;
-    maxX = Math.max(0, trackRect.width - pillRect.width - leftPad - rightPad);
-  }
+    // X is centered: [-max..+max], 0 is center
+    let minX = 0, maxX = 0, curX = 0;
 
-  function progress(x) {
-    if (maxX === minX) return 0.5;
-    return (x - minX) / (maxX - minX);
-  }
+    // 중앙 밴드(=yellow)
+    const TH_LEFT  = 0.40;
+    const TH_RIGHT = 0.60;
 
-  // ✅ red/green 확정 시 의미는 "반대쪽 슬롯"에 노출
-  // red 확정(왼쪽): 의미 = 오른쪽 슬롯
-  // green 확정(오른쪽): 의미 = 왼쪽 슬롯
-  function meaningOpacityRight(p){
-    // p가 왼쪽으로 갈수록 오른쪽 meaning이 나타남
-    if(p >= TH_LEFT) return 0;
-    const t = (TH_LEFT - p) / TH_LEFT;
-    return smoothstep(t);
-  }
-  function meaningOpacityLeft(p){
-    // p가 오른쪽으로 갈수록 왼쪽 meaning이 나타남
-    if(p <= TH_RIGHT) return 0;
-    const t = (p - TH_RIGHT) / (1 - TH_RIGHT);
-    return smoothstep(t);
-  }
+    // drag intent
+    let pending = false;
+    let intent = null; // "drag" | "scroll" | null
+    let pid = null;
+    let downX = 0, downY = 0;
+    let startClientX = 0, startX = 0;
+    const INTENT_PX = 8;
 
-  function applyVisualByX(x){
-    const p = progress(x);
+    // animation flags
+    let bootAnimating = false;
+    let peekTimer = null;
 
-    // tint continuous
-    const leftStr  = Math.max(0, (0.5 - p) / 0.5);
-    const rightStr = Math.max(0, (p - 0.5) / 0.5);
-    tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
-    tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
+    // peek multipliers (stable state에서는 0, peek 때만 올라옴)
+    let peekL = 0, peekR = 0;
 
-    // pill color continuous between red↔neutral↔green (drag용)
-    // (yellow는 "상태" 전환으로 처리)
-    let bg, bd;
-    if(p <= 0.5){
-      const t = p / 0.5;
-      bg = mixRGBA(COL_RED_BG, COL_NEUTRAL_BG, t);
-      bd = mixRGBA(COL_RED_BD, COL_NEUTRAL_BD, t);
-    }else{
-      const t = (p - 0.5) / 0.5;
-      bg = mixRGBA(COL_NEUTRAL_BG, COL_GREEN_BG, t);
-      bd = mixRGBA(COL_NEUTRAL_BD, COL_GREEN_BD, t);
-    }
-    // 단, yellow 상태면 아래에서 override 됨
-    if(getStatus() !== "yellow"){
-      pill.style.background = rgbaStr(bg);
-      pill.style.borderColor = rgbaStr(bd);
+    function computeBounds() {
+      const trackRect = el.getBoundingClientRect();
+      const pillRect  = pill.getBoundingClientRect();
+      const pad = 10;
+      const half = trackRect.width / 2;
+      const halfP = pillRect.width / 2;
+      // center-anchored bounds
+      minX = -(half - halfP - pad);
+      maxX = +(half - halfP - pad);
+      if(!Number.isFinite(minX) || !Number.isFinite(maxX)){
+        minX = -120; maxX = 120;
+      }
     }
 
-    // meaning opacity continuous (yellow는 slots 숨김)
-    const opR = meaningOpacityRight(p);
-    const opL = meaningOpacityLeft(p);
+    function progress01(x){
+      if (maxX === minX) return 0.5;
+      return (x - minX) / (maxX - minX);
+    }
 
-    if(getStatus() !== "yellow"){
-      meanR.style.opacity = String(opR);
+    function statusToX(st){
+      if(st === "red") return minX;
+      if(st === "green") return maxX;
+      // yellow or unknown
+      return 0;
+    }
+
+    function snapByX(x){
+      const p = progress01(x);
+      if(p <= TH_LEFT) return "red";
+      if(p >= TH_RIGHT) return "green";
+      return "yellow";
+    }
+
+    function setTrackClass(st){
+      el.classList.remove("is-unknown","is-red","is-yellow","is-green");
+      el.classList.add(
+        st === "red" ? "is-red" :
+        st === "green" ? "is-green" :
+        st === "yellow" ? "is-yellow" : "is-unknown"
+      );
+    }
+
+    function setPillColorByProgress(p){
+      // 3-stop mix: red <-> amber <-> green
+      // (visual feels "신호등"이지만 여전히 테마 유지)
+      let rgb, a = 0.30;
+      let bdA = 0.32;
+
+      if(p <= 0.5){
+        const t = p / 0.5; // 0..1 (red->amber)
+        rgb = [
+          Math.round(lerp(RGB_RED[0], RGB_AMBER[0], t)),
+          Math.round(lerp(RGB_RED[1], RGB_AMBER[1], t)),
+          Math.round(lerp(RGB_RED[2], RGB_AMBER[2], t)),
+        ];
+      }else{
+        const t = (p - 0.5) / 0.5; // 0..1 (amber->green)
+        rgb = [
+          Math.round(lerp(RGB_AMBER[0], RGB_GREEN[0], t)),
+          Math.round(lerp(RGB_AMBER[1], RGB_GREEN[1], t)),
+          Math.round(lerp(RGB_AMBER[2], RGB_GREEN[2], t)),
+        ];
+      }
+
+      pill.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+      pill.style.borderColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${bdA})`;
+    }
+
+    function applyLightsAndTints(x){
+      const p = progress01(x);
+
+      // intensities
+      const redI   = smoothstep(clamp01((0.5 - p)/0.5));
+      const greenI = smoothstep(clamp01((p - 0.5)/0.5));
+      const yellowI = smoothstep(clamp01(1 - (Math.abs(p - 0.5) / 0.5))); // peak at center
+
+      // edge fade so red light disappears when snapped fully red; same for green
+      const leftEdgeFade  = smoothstep(clamp01(p / TH_LEFT));                // 0 at very left, 1 by TH_LEFT
+      const rightEdgeFade = smoothstep(clamp01((1 - p) / (1 - TH_RIGHT)));   // 0 at very right, 1 by TH_RIGHT
+
+      // center light should be visible in unknown/approach, but fade when "yellow snapped"
+      // => while dragging/boot, keep it; when stable yellow, fade it
+      const stable = (!bootAnimating && intent !== "drag");
+      const current = getStableStatus();
+
+      // lights opacity
+      const oL = clamp01(redI * leftEdgeFade);
+      const oR = clamp01(greenI * rightEdgeFade);
+
+      // center light:
+      // - unknown: visible to hint yellow exists
+      // - while dragging/boot: visible (continuous)
+      // - stable yellow: fade out (pill itself is amber, so label/light is not needed)
+      let oC = yellowI * 0.95;
+      if(stable && current === "yellow") oC *= 0.0;
+      if(stable && current === "red") oC *= 0.0;
+      if(stable && current === "green") oC *= 0.0;
+
+      // set light colors + glows
+      setLightStyle(lightL, RGB_RED,   oL);
+      setLightStyle(lightR, RGB_GREEN, oR);
+      setLightStyle(lightC, RGB_AMBER, oC);
+
+      // tints
+      tintL.style.opacity  = String(Math.min(1, redI * 0.9));
+      tintR.style.opacity  = String(Math.min(1, greenI * 0.9));
+      // amber tints also continuous
+      tintAL.style.opacity = String(Math.min(1, yellowI * 0.55));
+      tintAR.style.opacity = String(Math.min(1, yellowI * 0.55));
+
+      // pill color:
+      // - stable red/green/yellow => lock to that color
+      // - dragging/boot => continuous by p
+      if(intent === "drag" || bootAnimating){
+        setPillColorByProgress(p);
+      }else{
+        const st = getStableStatus();
+        if(st === "red") setPillColorByProgress(0.0);
+        else if(st === "green") setPillColorByProgress(1.0);
+        else if(st === "yellow") setPillColorByProgress(0.5);
+        else {
+          // unknown: keep more transparent (CSS already does it) but still keep subtle neutral
+          pill.style.background = "";
+          pill.style.borderColor = "";
+        }
+      }
+
+      // meaning opacity:
+      // - dragging/boot: continuous (so 겹침 없음)
+      // - stable: only peek (peekL/peekR)
+      let opL = 0, opR = 0;
+      if(intent === "drag" || bootAnimating){
+        // show opposing slot depending on direction continuously
+        // red side -> right meaning, green side -> left meaning
+        opR = smoothstep(clamp01((TH_LEFT - p) / TH_LEFT));            // 1 at left, 0 near TH_LEFT
+        opL = smoothstep(clamp01((p - TH_RIGHT) / (1 - TH_RIGHT)));    // 0 near TH_RIGHT, 1 at right
+      }
+      // apply peek overlay
+      opL = Math.max(opL, peekL);
+      opR = Math.max(opR, peekR);
+
       meanL.style.opacity = String(opL);
-      meanR.style.transform = `translateY(-50%) translateX(${Math.round(6 * (1 - opR))}px)`;
-      meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6 * (1 - opL))}px)`;
+      meanR.style.opacity = String(opR);
+
+      // micro motion
+      meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
+      meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
     }
 
-    // ✅ unknown에서만 lights가 존재감을 갖고, (드래그/부트 중) 의미가 올라오면 lights 연속 fade
-    const shouldFadeLights =
-      (bootAnimating && dragOriginStatus === "unknown") ||
-      (intent === "drag" && dragOriginStatus === "unknown");
-
-    if(shouldFadeLights){
-      const fade = clamp01(1 - Math.max(opR, opL));
-      sigLR.style.opacity = String(fade);
-      sigY.style.opacity  = String(Math.min(.75, .75 * fade));
-    }else{
-      sigLR.style.opacity = "";
-      sigY.style.opacity  = "";
-    }
-  }
-
-  function moveTo(x, snap){
-    const clamped = Math.max(minX, Math.min(maxX, x));
-    curX = clamped;
-    if(snap) pill.classList.remove("dragging");
-    pill.style.transform = `translateY(-50%) translateX(${clamped}px)`;
-    applyVisualByX(clamped);
-  }
-
-  function setTrackClass(st){
-    el.classList.remove("is-unknown","is-red","is-yellow","is-green");
-    el.classList.add(
-      st === "red" ? "is-red" :
-      st === "green" ? "is-green" :
-      st === "yellow" ? "is-yellow" : "is-unknown"
-    );
-  }
-
-  function getStatus(){
-    return wordObj.status || "unknown";
-  }
-
-  function statusToX(st){
-    if(st === "red") return minX;
-    if(st === "green") return maxX;
-    // unknown/yellow은 중앙
-    return (minX + maxX) / 2;
-  }
-
-  function snapByX(x, originStatus){
-    const p = progress(x);
-    if(p <= TH_LEFT) return "red";
-    if(p >= TH_RIGHT) return "green";
-    // 중앙 밴드: origin이 yellow면 yellow 유지, 아니면 unknown
-    return originStatus === "yellow" ? "yellow" : "unknown";
-  }
-
-  function applyStatus(st, opts){
-    const save = !(opts && opts.save === false);
-    wordObj.status = st;
-    if(save){
-      state.words[index].status = st;
-      saveState(state);
+    function setLightStyle(node, rgb, opacity){
+      const a = clamp01(opacity);
+      node.style.opacity = String(a);
+      node.style.background = rgba(rgb, 0.92);
+      // glow intensity
+      const glowA = 0.55 * a;
+      const glowB = 0.25 * a;
+      node.style.boxShadow = `
+        0 0 ${Math.round(14 + 20*a)}px rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowA}),
+        0 0 ${Math.round(30 + 44*a)}px rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowB})
+      `;
     }
 
-    setTrackClass(st);
-
-    // yellow면 pill 색을 yellow로 override
-    if(st === "yellow"){
-      pill.style.background = rgbaStr(COL_YELLOW_BG);
-      pill.style.borderColor = rgbaStr(COL_YELLOW_BD);
-    }
-    if(st === "unknown"){
-      // unknown은 neutral
-      pill.style.background = rgbaStr(COL_NEUTRAL_BG);
-      pill.style.borderColor = rgbaStr(COL_NEUTRAL_BD);
-      // width도 base로 복귀
-      pill.style.width = getBasePillWidth() + "px";
-      setPillText(wordObj.word, true);
-    }
-    if(st === "red"){
-      // 위치 기반으로 이미 색은 잡히지만, 확정 느낌을 위해 red로 살짝 당겨줌
-      pill.style.background = rgbaStr(COL_RED_BG);
-      pill.style.borderColor = rgbaStr(COL_RED_BD);
-      pill.style.width = getBasePillWidth() + "px";
-      setPillText(wordObj.word, true);
-    }
-    if(st === "green"){
-      pill.style.background = rgbaStr(COL_GREEN_BG);
-      pill.style.borderColor = rgbaStr(COL_GREEN_BD);
-      pill.style.width = getBasePillWidth() + "px";
-      setPillText(wordObj.word, true);
+    function moveTo(x, snap){
+      const clamped = Math.max(minX, Math.min(maxX, x));
+      curX = clamped;
+      if(snap) pill.classList.remove("dragging");
+      pill.style.transform = `translate(-50%, -50%) translateX(${clamped}px)`;
+      applyLightsAndTints(clamped);
     }
 
-    moveTo(statusToX(st), true);
-  }
+    function getStableStatus(){
+      return wordObj.status || "unknown";
+    }
 
-  function applyMeaningSizing(slotEl){
-    const t = slotEl.textContent || "";
-    slotEl.classList.remove("small","smaller");
-    if(t.length >= 16) slotEl.classList.add("small");
-    if(t.length >= 22) slotEl.classList.add("smaller");
-  }
+    function markTouched(){
+      if(!wordObj.touched){
+        wordObj.touched = true;
+        state.words[index].touched = true;
+      }
+    }
 
-  /* =========================
-     Pill text + width animation for yellow
+    function applyStatus(nextStatus, opts){
+      const save = !(opts && opts.save === false);
+      const prev = getStableStatus();
+
+      // ✅ unknown은 최초 상호작용 이후 돌아오지 않음
+      if(prev !== "unknown" && nextStatus === "unknown"){
+        nextStatus = "yellow";
+      }
+
+      if(prev === "unknown"){
+        // 첫 변화 순간부터 touched
+        markTouched();
+        if(nextStatus === "unknown") nextStatus = "yellow";
+      }
+
+      const changed = (prev !== nextStatus);
+
+      // set status
+      wordObj.status = nextStatus;
+      state.words[index].status = nextStatus;
+
+      if(save){
+        saveState(state);
+      }
+
+      // snap to exact pos
+      setTrackClass(nextStatus);
+      moveTo(statusToX(nextStatus), true);
+
+      // ✅ 규칙: "어떤 상태이든 변화하면 meaning peek"
+      // ✅ 또한 "같은 영역 클릭해도 meaning peek"
+      triggerPeek(nextStatus, { from: prev, changed });
+    }
+
+    /* =========================
+       Peek behaviors
+       - red/green: meaning 슬롯 잠깐 표시
+       - yellow: pill 내부에서 word↔meaning + 폭 확장/복귀
   ========================= */
-  function getBasePillWidth(){
-    const css = getComputedStyle(document.documentElement).getPropertyValue("--pill-w").trim();
-    const n = parseFloat(css);
-    return Number.isFinite(n) ? n : 140;
-  }
-
-  function measureTextWidth(text){
-    measureEl.textContent = text || "";
-    // pill padding(좌우 14px) + 약간 여유
-    const w = Math.ceil(measureEl.getBoundingClientRect().width);
-    return w;
-  }
-
-  function clampPillWidth(targetPx){
-    // track 내에서 너무 커지지 않게 상한
-    const trackW = el.getBoundingClientRect().width || 360;
-    const maxPx = Math.floor(trackW * 0.72); // 안전한 상한
-    const minPx = getBasePillWidth();
-    return Math.max(minPx, Math.min(maxPx, targetPx));
-  }
-
-  function setPillText(text, immediate){
-    if(immediate){
-      pill.classList.remove("swap-out","swap-in");
-      pillText.textContent = text || "";
-      return;
+    function clearPeekTimers(){
+      if(peekTimer) { clearTimeout(peekTimer); peekTimer = null; }
     }
-    // fade out -> swap -> fade in
-    pill.classList.add("swap-out");
-    setTimeout(()=>{
-      pillText.textContent = text || "";
-      pill.classList.remove("swap-out");
-      pill.classList.add("swap-in");
-      setTimeout(()=> pill.classList.remove("swap-in"), getVarMs("--yellow-swap-ms", 220) + 10);
-    }, getVarMs("--yellow-swap-ms", 220));
-  }
 
-  async function runYellowMeaningPulse(){
-    if(userAnimating) return;
-    userAnimating = true;
+    function triggerPeek(st){
+      clearPeekTimers();
 
-    const holdMs = getVarMs("--yellow-word-hold-ms", 120);
-    const keepMeaningMs = getVarMs("--yellow-keep-meaning-ms", 520);
-    const widthMs = getVarMs("--yellow-width-ms", 320);
+      const inMs   = getVarMs("--peek-in-ms", 120);
+      const holdMs = getVarMs("--peek-hold-ms", 520);
+      const outMs  = getVarMs("--peek-out-ms", 260);
 
-    // 1) 잠깐 텀
-    await wait(holdMs);
+      // reset slot peek
+      peekL = 0; peekR = 0;
 
-    // 2) 의미 텍스트로 바꾸며 width 확장
-    const targetW = clampPillWidth(measureTextWidth(wordObj.meaning || ""));
-    pill.style.transition = pill.style.transition || ""; // keep
-    pill.style.width = targetW + "px";
-    setPillText(wordObj.meaning || "", false);
+      // cancel any pill width override before starting
+      pill.classList.remove("is-meaning");
+      pillTxt.style.opacity = "1";
+      pill.style.width = ""; // back to css var
 
-    await wait(widthMs + keepMeaningMs);
+      // red/green: show meaning in side slot for a moment (and then hide)
+      if(st === "red"){
+        // meaning on RIGHT slot
+        peekR = 1;
+        applyLightsAndTints(curX);
 
-    // 3) 영단어로 복귀하며 width 원복
-    pill.style.width = getBasePillWidth() + "px";
-    setPillText(wordObj.word, false);
+        peekTimer = setTimeout(()=>{
+          // fade out
+          peekR = 0;
+          applyLightsAndTints(curX);
+        }, inMs + holdMs + outMs);
 
-    await wait(widthMs + 40);
+        return;
+      }
 
-    userAnimating = false;
-  }
+      if(st === "green"){
+        // meaning on LEFT slot
+        peekL = 1;
+        applyLightsAndTints(curX);
 
-  function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+        peekTimer = setTimeout(()=>{
+          peekL = 0;
+          applyLightsAndTints(curX);
+        }, inMs + holdMs + outMs);
 
-  /* =========================
-     Boot init (hold center -> rAF move, continuous)
-  ========================= */
-  let lastW = 0;
-  function init(mode){
-    computeBounds();
+        return;
+      }
 
-    const trackW = el.getBoundingClientRect().width;
-    const widthChanged = Math.abs(trackW - lastW) > 2;
-    lastW = trackW;
+      // yellow: pill 내부에서 word -> meaning -> word (폭도 필요 시 확장)
+      if(st === "yellow"){
+        const baseW = getComputedStyle(pill).width;
+        const basePx = parseFloat(baseW) || 140;
 
-    const st = getStatus();
+        // measure meaning width (meaning font)
+        measurer.textContent = wordObj.meaning || "";
+        const measW = measurer.getBoundingClientRect().width;
+        // padding inside pill roughly 28px + a little breathing
+        const target = Math.ceil(measW + 28 + 18);
 
-    if(mode === "resize" && !widthChanged) return;
+        // cap by track width
+        const trackW = el.getBoundingClientRect().width;
+        const maxW = Math.max(basePx, trackW - 20);
+        const targetW = Math.min(maxW, Math.max(basePx, target));
 
-    if(mode === "resize"){
+        // step1: fade out word
+        pillTxt.style.opacity = "0";
+
+        setTimeout(()=>{
+          // swap to meaning
+          pill.classList.add("is-meaning");
+          pillTxt.textContent = wordObj.meaning || "";
+          pill.style.width = `${targetW}px`; // symmetric because center-anchored
+          pillTxt.style.opacity = "1";
+
+          // hold then back to word
+          peekTimer = setTimeout(()=>{
+            pillTxt.style.opacity = "0";
+
+            setTimeout(()=>{
+              pill.classList.remove("is-meaning");
+              pillTxt.textContent = wordObj.word || "";
+              pill.style.width = ""; // back to base
+              pillTxt.style.opacity = "1";
+            }, outMs);
+
+          }, holdMs);
+
+        }, inMs);
+
+        return;
+      }
+
+      // unknown: 첫 상호작용 이전엔 peek를 굳이 하지 않지만,
+      // 규칙상 "변화"는 yellow로 일어나므로 여기 들어올 일은 거의 없음.
+    }
+
+    function applyMeaningSizing(slotEl){
+      const t = slotEl.textContent || "";
+      slotEl.classList.remove("small","smaller");
+      if(t.length >= 16) slotEl.classList.add("small");
+      if(t.length >= 22) slotEl.classList.add("smaller");
+    }
+
+    /* =========================
+       Init (boot + resize-safe)
+    ========================= */
+    let lastW = 0;
+
+    function init(mode){
+      computeBounds();
+
+      const trackW = el.getBoundingClientRect().width;
+      const widthChanged = Math.abs(trackW - lastW) > 2;
+      lastW = trackW;
+
+      const st = getStableStatus();
+
+      if(mode === "resize" && !widthChanged) return;
+
+      if(mode === "resize"){
+        pill.classList.add("booting");
+        bootAnimating = false;
+        peekL = 0; peekR = 0;
+        setTrackClass(st);
+        moveTo(statusToX(st), true);
+        requestAnimationFrame(()=> pill.classList.remove("booting"));
+        return;
+      }
+
+      // boot: center hold -> ease move to saved state (연속 변화)
+      const holdMs = getVarMs("--boot-hold-ms", 600);
+      const moveMs = getVarMs("--boot-move-ms", 2600);
+
       pill.classList.add("booting");
       bootAnimating = false;
-      sigLR.style.opacity = "";
-      sigY.style.opacity = "";
+      peekL = 0; peekR = 0;
 
-      setTrackClass(st);
-      moveTo(statusToX(st), true);
+      // start in center (unknown visuals)
+      setTrackClass("unknown");
+      moveTo(0, true);
 
-      // 상태별 color 보정
-      applyStatus(st, { save:false });
+      requestAnimationFrame(()=>{
+        el.classList.remove("preboot");
 
-      requestAnimationFrame(()=> pill.classList.remove("booting"));
-      return;
+        // if saved status is unknown OR untouched -> just settle
+        if(st === "unknown" || !wordObj.touched){
+          pill.classList.remove("booting");
+          applyLightsAndTints(curX);
+          return;
+        }
+
+        setTimeout(()=>{
+          bootAnimating = true;
+          const fromX = 0;
+          const toX = statusToX(st);
+          const t0 = performance.now();
+
+          function step(now){
+            const t = clamp01((now - t0) / moveMs);
+            const e = easeInOutCubic(t);
+            const x = lerp(fromX, toX, e);
+            moveTo(x, false);
+
+            if(t < 1){
+              requestAnimationFrame(step);
+            }else{
+              bootAnimating = false;
+              pill.classList.remove("booting");
+              setTrackClass(st);
+              moveTo(toX, true);
+
+              // ✅ 규칙: "변화하면 peek"
+              // boot는 "상태로 들어오는 순간"이 있으니 한번 peek
+              triggerPeek(st);
+            }
+          }
+
+          requestAnimationFrame(step);
+        }, holdMs);
+      });
     }
 
-    // boot
-    const holdMs = getVarMs("--boot-hold-ms", 600);
-    const moveMs = getVarMs("--boot-move-ms", 3000);
+    requestAnimationFrame(()=> init("boot"));
 
-    dragOriginStatus = "unknown";
-    bootAnimating = false;
+    let resizeT = null;
+    window.addEventListener("resize", ()=>{
+      clearTimeout(resizeT);
+      resizeT = setTimeout(()=> init("resize"), 80);
+    }, { passive:true });
 
-    pill.classList.add("booting");
-    setTrackClass("unknown");
-    wordObj.status = "unknown";
-    // neutral base
-    pill.style.width = getBasePillWidth() + "px";
-    pill.style.background = rgbaStr(COL_NEUTRAL_BG);
-    pill.style.borderColor = rgbaStr(COL_NEUTRAL_BD);
-    setPillText(wordObj.word, true);
+    /* =========================
+       Drag (intent-based)
+    ========================= */
+    pill.addEventListener("pointerdown", (e)=>{
+      pending = true;
+      intent = null;
+      pid = e.pointerId;
 
-    moveTo(statusToX("unknown"), true);
+      computeBounds();
+      downX = e.clientX;
+      downY = e.clientY;
 
-    requestAnimationFrame(()=>{
-      el.classList.remove("preboot");
+      startClientX = e.clientX;
+      startX = curX;
+      // preventDefault 금지(스크롤 우선)
+    });
 
-      // 저장 상태가 unknown이면 끝
-      if(st === "unknown"){
-        pill.classList.remove("booting");
-        applyStatus("unknown", { save:false });
-        return;
-      }
+    pill.addEventListener("pointermove", (e)=>{
+      if(!pending || e.pointerId !== pid) return;
 
-      // 저장 상태가 yellow면: hold 후 중앙에서 yellow로 "서서히 점등" 느낌만 주고 끝
-      if(st === "yellow"){
-        setTimeout(()=>{
-          pill.classList.remove("booting");
-          applyStatus("yellow", { save:false });
-        }, holdMs);
-        return;
-      }
+      const dx0 = e.clientX - downX;
+      const dy0 = e.clientY - downY;
 
-      // red/green은 hold 후 rAF로 이동하면서 연속 변화
-      setTimeout(()=>{
-        bootAnimating = true;
+      if(!intent){
+        const adx = Math.abs(dx0);
+        const ady = Math.abs(dy0);
 
-        const fromX = statusToX("unknown");
-        const toX   = statusToX(st);
-        const t0 = performance.now();
-
-        function step(now){
-          const t = clamp01((now - t0) / moveMs);
-          const e = easeInOutCubic(t);
-          const x = lerp(fromX, toX, e);
-          moveTo(x, false);
-
-          if(t < 1){
-            requestAnimationFrame(step);
-          }else{
-            bootAnimating = false;
-            pill.classList.remove("booting");
-            // 이동 끝에서 상태 확정(뚝변 방지)
-            applyStatus(st, { save:false });
-          }
+        if(adx > INTENT_PX && adx > ady){
+          intent = "drag";
+          pill.setPointerCapture(pid);
+          pill.classList.add("dragging");
+          startClientX = e.clientX;
+          startX = curX;
+        }else if(ady > INTENT_PX && ady > adx){
+          intent = "scroll";
+          pending = false;
+          return;
+        }else{
+          return;
         }
-        requestAnimationFrame(step);
-      }, holdMs);
+      }
+
+      if(intent !== "drag") return;
+
+      // moving => continuous visuals
+      const dx = e.clientX - startClientX;
+      moveTo(startX + dx, false);
+
+      e.preventDefault();
+    });
+
+    function endPointer(e){
+      if(e.pointerId !== pid) return;
+
+      // TAP (no drag) => treat as "current region click" with peek (and state change if needed)
+      if(intent !== "drag"){
+        pending = false;
+        intent = null;
+
+        // a tap on pill should behave like tapping the region it's sitting in
+        const st = getStableStatus();
+        if(st === "unknown"){
+          applyStatus("yellow");
+        }else{
+          applyStatus(st); // same state => peek
+        }
+        return;
+      }
+
+      // drag end
+      pending = false;
+      pill.classList.remove("dragging");
+
+      const snapped = snapByX(curX);
+      applyStatus(snapped);
+
+      intent = null;
+      e.preventDefault();
+    }
+
+    pill.addEventListener("pointerup", endPointer);
+    pill.addEventListener("pointercancel", endPointer);
+
+    /* =========================
+       Zones clicks
+       - left => red
+       - center => yellow (NEVER unknown)
+       - right => green
+       - same state click => peek
+    ========================= */
+    zoneL.addEventListener("click", ()=> applyStatus("red"));
+    zoneR.addEventListener("click", ()=> applyStatus("green"));
+    zoneC.addEventListener("click", ()=> applyStatus("yellow"));
+
+    // initial visuals
+    applyLightsAndTints(curX);
+
+    return el;
+  }
+
+  /* =========================
+     Render
+  ========================= */
+  let state = loadState();
+
+  function render() {
+    listEl.innerHTML = "";
+    const count = state.words.length;
+
+    const remain = Math.max(0, 3 - state.chargeUsed);
+    remainText.textContent = `${remain}/3`;
+    btnCharge.disabled = remain <= 0;
+
+    if (count === 0) {
+      emptyState.style.display = "block";
+      return;
+    }
+    emptyState.style.display = "none";
+
+    state.words.forEach((w, idx) => {
+      listEl.appendChild(buildTrackRow(w, idx, state));
     });
   }
 
-  requestAnimationFrame(()=> init("boot"));
-  let resizeT = null;
-  window.addEventListener("resize", ()=>{
-    clearTimeout(resizeT);
-    resizeT = setTimeout(()=> init("resize"), 80);
-  }, { passive:true });
-
   /* =========================
-     Drag intent-based
+     Charge modal
   ========================= */
-  pill.addEventListener("pointerdown", (e)=>{
-    if(userAnimating) return; // yellow pulse 중엔 드래그 잠깐 막음 (원하면 제거 가능)
-
-    pending = true;
-    intent = null;
-    pid = e.pointerId;
-
-    dragOriginStatus = getStatus();
-
-    computeBounds();
-    downX = e.clientX;
-    downY = e.clientY;
-
-    startClientX = e.clientX;
-    startX = curX;
+  btnCharge.addEventListener("click", () => {
+    state = loadState();
+    const remain = Math.max(0, 3 - state.chargeUsed);
+    remainText.textContent = `${remain}/3`;
+    dlgChargeDo.disabled = remain <= 0;
+    dlgCharge.show();
   });
 
-  pill.addEventListener("pointermove", (e)=>{
-    if(!pending || e.pointerId !== pid) return;
+  dlgChargeClose.addEventListener("click", () => dlgCharge.hide());
 
-    const dx0 = e.clientX - downX;
-    const dy0 = e.clientY - downY;
-
-    if(!intent){
-      const adx = Math.abs(dx0);
-      const ady = Math.abs(dy0);
-
-      if(adx > INTENT_PX && adx > ady){
-        intent = "drag";
-        pill.setPointerCapture(pid);
-        pill.classList.add("dragging");
-        startClientX = e.clientX;
-        startX = curX;
-
-        // 드래그 시작 시 yellow였다면, 연속색/슬롯모드로 전환되며 중앙에서 빠져나갈 수 있게 허용
-        // (yellow 고정색은 applyVisualByX에서 status 체크로 막히므로, 드래그 중에는 잠시 yellow 색 override 유지)
-      }else if(ady > INTENT_PX && ady > adx){
-        intent = "scroll";
-        pending = false;
-        return;
-      }else{
-        return;
-      }
-    }
-
-    if(intent !== "drag") return;
-
-    // 드래그 중에는 yellow도 X 기반 색감/연속 변화가 자연스러우니 잠시 허용:
-    // => status가 yellow인 동안 applyVisualByX가 색을 override 못하게 했으므로,
-    //    드래그 중엔 "가변색"이 필요하면 아래 한 줄을 켜면 됨.
-    // 지금은 "yellow 유지" 쪽이 더 브랜드 안정적이라 그대로 둠.
-
-    const dx = e.clientX - startClientX;
-    moveTo(startX + dx, false);
-    e.preventDefault();
-  });
-
-  function endDrag(e){
-    if(e.pointerId !== pid) return;
-
-    if(intent !== "drag"){
-      pending = false;
-      intent = null;
+  dlgChargeDo.addEventListener("click", () => {
+    state = loadState();
+    const remain = 3 - state.chargeUsed;
+    if (remain <= 0) {
+      dlgCharge.hide();
+      showToast("오늘 충전은 3회까지예요.");
       return;
     }
+    state.words = state.words.concat(makeDummyWords(10));
+    state.chargeUsed += 1;
+    saveState(state);
+    dlgCharge.hide();
 
-    pending = false;
-    pill.classList.remove("dragging");
-    sigLR.style.opacity = "";
-    sigY.style.opacity = "";
-
-    const next = snapByX(curX, dragOriginStatus);
-    applyStatus(next);
-
-    intent = null;
-    e.preventDefault();
-  }
-
-  pill.addEventListener("pointerup", endDrag);
-  pill.addEventListener("pointercancel", endDrag);
+    render();
+    showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
+  });
 
   /* =========================
-     Click actions
+     Boot
   ========================= */
-  // Zones: left/right는 확정, center는 unknown (grey)로
-  zoneL.addEventListener("click", ()=> applyStatus("red"));
-  zoneR.addEventListener("click", ()=> applyStatus("green"));
-  zoneC.addEventListener("click", ()=> applyStatus("unknown"));
-
-  // Pill click: yellow 토글 + 의미 pulse
-  // - unknown/red/green에서 클릭 => yellow로 전환 + meaning pulse
-  // - yellow에서 클릭 => meaning pulse (색 유지)
-  pill.addEventListener("click", async ()=>{
-    if(userAnimating) return;
-
-    const st = getStatus();
-    if(st !== "yellow"){
-      applyStatus("yellow");
-      // yellow는 중앙 고정
-      moveTo(statusToX("yellow"), true);
-      await wait(40);
-    }
-    // yellow pulse 실행
-    runYellowMeaningPulse();
-  });
-
-  // 초기 상태 반영 (render 직후 안전)
-  applyStatus(getStatus(), { save:false });
-
-  return el;
-}
-
-/* =========================
-   Render
-========================= */
-let state = loadState();
-
-function render() {
-  listEl.innerHTML = "";
-  const count = state.words.length;
-
-  const remain = Math.max(0, 3 - state.chargeUsed);
-  remainText.textContent = `${remain}/3`;
-  btnCharge.disabled = remain <= 0;
-
-  if (count === 0) {
-    emptyState.style.display = "block";
-    return;
-  }
-  emptyState.style.display = "none";
-
-  state.words.forEach((w, idx) => {
-    // 기존 v0/v1 데이터가 dont/know를 썼으면 자동 마이그레이션
-    if(w.status === "dont") w.status = "red";
-    if(w.status === "know") w.status = "green";
-    if(!w.status) w.status = "unknown";
-
-    listEl.appendChild(buildTrackRow(w, idx, state));
-  });
-
-  saveState(state);
-}
-
-/* =========================
-   Charge modal
-========================= */
-btnCharge.addEventListener("click", () => {
-  state = loadState();
-  const remain = Math.max(0, 3 - state.chargeUsed);
-  remainText.textContent = `${remain}/3`;
-  dlgChargeDo.disabled = remain <= 0;
-  dlgCharge.show();
-});
-
-dlgChargeClose.addEventListener("click", () => dlgCharge.hide());
-
-dlgChargeDo.addEventListener("click", () => {
-  state = loadState();
-  const remain = 3 - state.chargeUsed;
-  if (remain <= 0) {
-    dlgCharge.hide();
-    showToast("오늘 충전은 3회까지예요.");
-    return;
-  }
-  state.words = state.words.concat(makeDummyWords(10));
-  state.chargeUsed += 1;
-  saveState(state);
-  dlgCharge.hide();
-
   render();
-  showToast(`충전 완료! +10개 (남은 ${Math.max(0, 3 - state.chargeUsed)}/3)`);
-});
-
-/* =========================
-   Boot
-========================= */
-render();
-requestAnimationFrame(() => document.documentElement.classList.add("ready"));
-</script>
-
+  requestAnimationFrame(() => document.documentElement.classList.add("ready"));
+  </script>
 </body>
 </html>
