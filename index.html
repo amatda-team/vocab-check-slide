@@ -16,7 +16,7 @@
       /* timings */
       --move-ms: 360ms;
       --peek-in-ms: 120ms;
-      --peek-hold-ms: 1500ms;
+      --peek-hold-ms: 560ms;
       --peek-out-ms: 200ms;
 
       /* Theme */
@@ -248,25 +248,43 @@
       pointer-events: none; /* ✅ pill 자체 클릭 제거: 영역 클릭만 */
     }
 
-    .pill-text{
-      display:block;
-      width:100%;
-      text-align:center;
+    /* ✅ iOS 겹침 방지: word/meaning 2-layer */
+    .pill-layer{
+      position:absolute;
+      inset: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0 var(--pill-pad-x);
+
       white-space: nowrap;
       overflow: visible;
       text-overflow: clip;
+
+      transition: opacity 120ms ease;
+      will-change: opacity;
+
+      /* iOS 겹침/깜빡임 방지 */
+      backface-visibility: hidden;
+      transform: translateZ(0);
+      pointer-events:none;
+    }
+    .pill-word{
       font-weight: 900;
       letter-spacing: -.2px;
       color: rgba(255,255,255,.92);
       font-size: 15px;
-      transition: opacity 120ms ease;
-      pointer-events: none;
+      opacity: 1;
     }
-    .pill.is-meaning .pill-text{
+    .pill-meaning{
       font-weight: 600;
+      letter-spacing: -.2px;
       color: rgba(255,255,255,.78);
       font-size: 14px;
+      opacity: 0;
     }
+    .pill.show-meaning .pill-word{ opacity: 0; }
+    .pill.show-meaning .pill-meaning{ opacity: 1; }
 
     .footer{
       position: fixed;
@@ -406,16 +424,18 @@
 
   function makeDummyWords(n){
     const pool = [
-      ["abandonddddddddddd", "버리다, 포기하다"],
-      ["accuratedddddddd", "정확한"],
-      ["benevdddddolent", "자비로운, 선의의 ㅇㄹㅇㄹㅇㄹ"],
+      ["abandon", "버리다, 포기하다"],
+      ["accurate", "정확한"],
+      ["benevolent", "자비로운, 선의의"],
       ["consequence", "결과, 영향"],
       ["diligent", "성실한"],
-      ["elaborate", "정교한, 상세히 설명하다 ㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹㅇㄹ"],
-      ["fricdfdfdfdfdftion", "마찰, 충돌"],
+      ["elaborate", "정교한, 상세히 설명하다"],
+      ["friction", "마찰, 충돌"],
       ["gratitude", "감사"],
-      ["hesitdfdfdfdfate", "망설이다"],
-      ["inevitable", "피할 수 없는, ㅇㄹㅇㄹㄹㅇㄹㅇㄹ"]
+      ["hesitate", "망설이다"],
+      ["inevitable", "피할 수 없는"],
+      ["incomprehensible", "이해할 수 없는, 난해한"],
+      ["meticulously", "아주 꼼꼼하게, 세심하게"]
     ];
     const out = [];
     const base = Date.now().toString(36);
@@ -497,8 +517,7 @@
     const padX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-pad-x")) || 14;
     const bd = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pill-bd")) || 1;
     const tW = measureTextPx(text, isMeaning);
-    const w = Math.max(minW, tW + (padX*2) + (bd*2) + 6);
-    return Math.ceil(w);
+    return Math.max(minW, tW + (padX*2) + (bd*2) + 6);
   }
 
   function buildTrackRow(wordObj, state){
@@ -517,7 +536,8 @@
       <div class="zone right" aria-label="오른쪽(GREEN)"></div>
 
       <div class="pill" aria-hidden="true">
-        <span class="pill-text">${escapeHtml(wordObj.word)}</span>
+        <span class="pill-layer pill-word">${escapeHtml(wordObj.word)}</span>
+        <span class="pill-layer pill-meaning">${escapeHtml(wordObj.meaning)}</span>
       </div>
     `;
 
@@ -531,11 +551,24 @@
     const zoneR  = el.querySelector(".zone.right");
 
     const pill   = el.querySelector(".pill");
-    const txt    = el.querySelector(".pill-text");
+    const wordSpan = el.querySelector(".pill-word");
+    const meaningSpan = el.querySelector(".pill-meaning");
 
-    // ✅ width 정책: 단조 증가(절대 줄이지 않음)
-    let currentPillW = calcWidthForText(wordObj.word || "", false);
-    pill.style.width = currentPillW + "px";
+    // ✅ width 정책: 단조 증가(줄이지 않음)
+    let currentPillW = 0;
+
+    function initPillWidth(){
+      const w = calcWidthForText(wordObj.word || "", false);
+      currentPillW = w;
+      pill.style.width = currentPillW + "px";
+    }
+    function expandWidthIfNeeded(text, isMeaning){
+      const needed = calcWidthForText(text || "", isMeaning);
+      if(needed > currentPillW){
+        currentPillW = needed;
+        pill.style.width = currentPillW + "px";
+      }
+    }
 
     let curP = 0.5;
     let moving = false;
@@ -589,8 +622,7 @@
       pill.style.transform = `translate(-50%, -50%) translateX(${x}px)`;
     }
 
-    // ✅ default일 때는 연속 비주얼을 "절대" 호출하지 않도록 분기
-    function moveToP(nextP, animate, isDefault){
+    function moveToP(nextP, animate){
       if(!animate){
         pill.style.transition = "none";
         setPillTransformByP(nextP);
@@ -612,14 +644,14 @@
         const p = lerp(fromP, toP, e);
 
         setPillTransformByP(p);
-        if(!isDefault) applyContinuousVisual(p);
+        applyContinuousVisual(p);
 
         if(t < 1){
           requestAnimationFrame(step);
         }else{
           curP = toP;
           moving = false;
-          if(!isDefault) applyContinuousVisual(curP);
+          applyContinuousVisual(curP);
         }
       }
       requestAnimationFrame(step);
@@ -641,63 +673,43 @@
       saveState(state);
     }
 
-    // ✅ width 단조 증가: 필요할 때만 currentPillW를 키운다
-    function expandWidthIfNeeded(text, isMeaning){
-      const needed = calcWidthForText(text, isMeaning);
-      if(needed > currentPillW){
-        currentPillW = needed;
-        pill.style.width = currentPillW + "px";
-      }
-    }
-
     function startPeek(){
       const token = ++peekToken;
 
       const inMs   = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--peek-in-ms")) || 120;
       const holdMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--peek-hold-ms")) || 560;
-      const outMs  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--peek-out-ms")) || 200;
 
       const word = wordObj.word || "";
       const meaning = wordObj.meaning || "";
 
-      // Step0: fade out
-      txt.style.opacity = "0";
+      // ✅ iOS 겹침 방지: 텍스트는 교체하되 "opacity 중 교체"를 피하기 위해
+      // 먼저 내용 동기화 후 클래스 토글만 사용
+      wordSpan.textContent = word;
+      meaningSpan.textContent = meaning;
 
+      // ✅ width는 줄이지 않음: meaning이 더 길 때만 늘림
+      expandWidthIfNeeded(meaning, true);
+
+      // 의미 표시
       setTimeout(()=>{
         if(token !== peekToken) return;
 
-        // Step1: show meaning (폭은 늘릴 수 있을 때만)
-        pill.classList.add("is-meaning");
-        txt.textContent = meaning;
-        expandWidthIfNeeded(meaning, true);
-        txt.style.opacity = "1";
-
-        // 폭 변경 후 현재 p 위치로 재정렬
+        pill.classList.add("show-meaning");
         setPillTransformByP(curP);
 
+        // 유지 후 복귀
         setTimeout(()=>{
           if(token !== peekToken) return;
 
-          // Step2: fade out meaning
-          txt.style.opacity = "0";
-          setTimeout(()=>{
-            if(token !== peekToken) return;
-
-            // Step3: back to word (폭은 줄이지 않음!)
-            pill.classList.remove("is-meaning");
-            txt.textContent = word;
-            // ❌ 줄이지 않음
-            txt.style.opacity = "1";
-            setPillTransformByP(curP);
-          }, outMs);
-
+          pill.classList.remove("show-meaning");
+          setPillTransformByP(curP);
         }, holdMs);
 
       }, inMs);
     }
 
     function onZone(status){
-      // 상태 갱신
+      // 상태 갱신(로컬)
       wordObj.status = status;
       if(wordObj.status === "default") wordObj.touched = true;
 
@@ -706,10 +718,10 @@
       // 이동 + 비주얼
       if(status === "default"){
         setDefaultVisual();
-        moveToP(0.5, true, true);
+        moveToP(0.5, true);
       }else{
         const p = statusToP(status);
-        moveToP(p, true, false);
+        moveToP(p, true);
       }
 
       // meaning peek
@@ -720,16 +732,14 @@
     zoneC.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("yellow"); });
     zoneR.addEventListener("click", (e)=>{ e.stopPropagation(); onZone("green"); });
 
-    // 초기 상태 반영
+    // 초기 상태 반영 (✅ default면 연속 비주얼 적용 안 함)
     const initStatus = wordObj.status || "default";
     curP = statusToP(initStatus);
 
     requestAnimationFrame(()=>{
-      // ✅ 초기 폭: word 기준(단조 증가 시작점)
-      currentPillW = calcWidthForText(wordObj.word || "", false);
-      pill.style.width = currentPillW + "px";
+      initPillWidth();
+      setPillTransformByP(curP);
 
-      moveToP(curP, false, initStatus === "default");
       if(initStatus === "default"){
         setDefaultVisual();
       }else{
@@ -737,7 +747,7 @@
       }
     });
 
-    // resize: 위치 재정렬 (width가 커져도 밖으로 안 나가게)
+    // resize: 위치 재정렬(폭 포함)
     let rt = null;
     window.addEventListener("resize", ()=>{
       clearTimeout(rt);
