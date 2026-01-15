@@ -13,7 +13,7 @@
     :root{
       --app-max: 520px;
 
-      /* Theme (keep) */
+      /* Theme */
       --bg0: #070a10;
       --bg1: #0b0f14;
 
@@ -22,10 +22,6 @@
 
       --track: rgba(255,255,255,.06);
       --line: rgba(255,255,255,.10);
-
-      --neutral: rgba(230,235,245,.22);
-      --danger: rgba(255,90,90,.30);
-      --ok: rgba(80,220,140,.30);
 
       --radius: 18px;
       --pill-radius: 999px;
@@ -59,7 +55,7 @@
       padding: 18px var(--pad) 120px;
     }
 
-    /* ✅ Heading + button same row */
+    /* Heading + button same row */
     .header{
       display:flex;
       align-items:center;
@@ -118,7 +114,7 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* tint continuous */
+    /* tint continuous (left/right glow) */
     .tint{
       position:absolute;
       inset:0;
@@ -133,12 +129,13 @@
       background: radial-gradient(600px 240px at 100% 55%, rgba(80,220,140,.22), transparent 62%);
     }
 
-    /* ✅ labels moved to top line so they never overlap pill */
+    /* ✅ Labels: vertical center */
     .labels{
       position:absolute;
-      left: 12px;
-      right: 12px;
-      top: 8px;
+      left: 14px;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -146,6 +143,7 @@
       user-select:none;
       -webkit-user-select:none;
       transition: opacity .14s ease;
+      z-index: 1;
     }
     .label{
       font-size: 13px;
@@ -153,12 +151,12 @@
       letter-spacing: -.2px;
     }
 
-    /* ✅ rule: labels only in unknown, BOTH hidden in dont/know */
+    /* labels only in unknown, BOTH hidden in dont/know */
     .track.is-unknown .labels{ opacity: 1; }
     .track.is-dont .labels,
     .track.is-know .labels{ opacity: 0; }
 
-    /* meaning slots (appear only when snapped to dont/know) */
+    /* meaning slots (always have text; opacity is continuous) */
     .meaning-slot{
       position:absolute;
       top: 50%;
@@ -166,86 +164,76 @@
       width: 46%;
       padding: 0 12px;
       pointer-events:none;
+
       opacity: 0;
-      transition: opacity .16s ease, transform .18s ease;
+      transition: opacity .10s linear, transform .16s ease;
+
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       font-size: 14px;
       color: rgba(255,255,255,.78);
+      z-index: 1;
     }
-
     .meaning-left{
       left: 10px;
       text-align:left;
-      transform: translateY(-50%) translateX(-6px);
     }
     .meaning-right{
       right: 10px;
       text-align:right;
-      transform: translateY(-50%) translateX(6px);
     }
-
-    /* show meaning based on snapped state */
-    .track.is-know .meaning-left{
-      opacity: 1;
-      transform: translateY(-50%) translateX(0px);
-    }
-    .track.is-dont .meaning-right{
-      opacity: 1;
-      transform: translateY(-50%) translateX(0px);
-    }
-
-    /* meaning font auto-step (simple, reliable) */
     .meaning-slot.small{ font-size: 13px; }
     .meaning-slot.smaller{ font-size: 12px; }
 
-    /* click zones (left/right half) */
+    /* click zones (left/center/right) */
     .zone{
       position:absolute;
       top:0; bottom:0;
-      width:50%;
-      z-index: 1;
+      z-index: 2;
       background: transparent;
     }
-    .zone.left{ left:0; }
-    .zone.right{ right:0; }
+    .zone.left{ left:0; width:34%; }
+    .zone.center{ left:33%; width:34%; }
+    .zone.right{ right:0; width:34%; }
 
     /* pill contains word and moves with it */
     .pill{
       position:absolute;
       top: 50%;
       transform: translateY(-50%) translateX(0px);
-      left: 10px; /* base offset */
+      left: 10px;
       height: var(--pill-h);
       width: var(--pill-w);
       border-radius: var(--pill-radius);
-      background: var(--neutral);
+
+      background: rgba(230,235,245,.22);
       border: 1px solid rgba(255,255,255,.14);
+
       display:flex;
       align-items:center;
       justify-content:center;
       padding: 0 14px;
+
       font-weight: 900;
       letter-spacing: -.2px;
       color: rgba(255,255,255,.92);
+
       user-select:none;
       -webkit-user-select:none;
       touch-action: none;
+
       will-change: transform, background, border-color;
-      transition: transform .18s cubic-bezier(.2,.9,.25,1), background .14s linear, border-color .14s linear;
-      z-index: 2;
+      transition: transform .18s cubic-bezier(.2,.9,.25,1), background .10s linear, border-color .10s linear;
+
+      z-index: 3;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .pill.dragging{ transition:none !important; }
 
-    .pill.neutral{ background: var(--neutral); border-color: rgba(255,255,255,.14); }
-    .pill.dont{ background: var(--danger); border-color: rgba(255,90,90,.32); }
-    .pill.know{ background: var(--ok); border-color: rgba(80,220,140,.32); }
-
-    /* Footer CTA (Phase 2 later) */
+    /* Footer CTA */
     .footer{
       position: fixed;
       left:0; right:0; bottom:0;
@@ -431,7 +419,36 @@
     }
 
     /* =========================
-       Track builder (final rules)
+       Helpers: color lerp
+    ========================= */
+    const COL_NEUTRAL_BG = [230,235,245, 0.22];
+    const COL_DANGER_BG  = [255, 90, 90, 0.30];
+    const COL_OK_BG      = [ 80,220,140, 0.30];
+
+    const COL_NEUTRAL_BD = [255,255,255, 0.14];
+    const COL_DANGER_BD  = [255, 90, 90, 0.32];
+    const COL_OK_BD      = [ 80,220,140, 0.32];
+
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function smoothstep(t){
+      t = clamp01(t);
+      return t*t*(3 - 2*t);
+    }
+    function mixRGBA(c1, c2, t){
+      return [
+        Math.round(lerp(c1[0], c2[0], t)),
+        Math.round(lerp(c1[1], c2[1], t)),
+        Math.round(lerp(c1[2], c2[2], t)),
+        lerp(c1[3], c2[3], t)
+      ];
+    }
+    function rgbaStr(c){
+      return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
+    }
+
+    /* =========================
+       Track builder
     ========================= */
     function buildTrackRow(wordObj, index, state){
       const el = document.createElement("div");
@@ -451,9 +468,10 @@
         <div class="meaning-slot meaning-right"></div>
 
         <div class="zone left" aria-label="몰라요 영역"></div>
+        <div class="zone center" aria-label="가운데(미선택) 영역"></div>
         <div class="zone right" aria-label="알아요 영역"></div>
 
-        <div class="pill neutral">${escapeHtml(wordObj.word)}</div>
+        <div class="pill">${escapeHtml(wordObj.word)}</div>
       `;
 
       const tintL = el.querySelector(".tint.left");
@@ -462,14 +480,37 @@
       const meanL = el.querySelector(".meaning-left");
       const meanR = el.querySelector(".meaning-right");
       const zoneL = el.querySelector(".zone.left");
+      const zoneC = el.querySelector(".zone.center");
       const zoneR = el.querySelector(".zone.right");
+
+      // meaning text always set (opacity handles visibility)
+      meanL.textContent = wordObj.meaning || "";
+      meanR.textContent = wordObj.meaning || "";
+      applyMeaningSizing(meanL);
+      applyMeaningSizing(meanR);
 
       let minX = 0, maxX = 0, curX = 0;
       let dragging = false, pid = null, startClientX = 0, startX = 0;
 
-      // ✅ 2-A: narrow unknown deadzone
-      const TH_LEFT  = 0.47; // <= dont
-      const TH_RIGHT = 0.53; // >= know
+      // ✅ (1) unknown deadzone widened
+      // p <= TH_LEFT => dont, p >= TH_RIGHT => know, else unknown
+      const TH_LEFT  = 0.44;
+      const TH_RIGHT = 0.56;
+
+      // for continuous meaning opacity:
+      // meaning fades to 0 near center band (TH_LEFT~TH_RIGHT)
+      function meaningOpacityRight(p){ // for dont-side meaning (right slot)
+        // active when p < TH_LEFT, fade-out towards TH_LEFT
+        if(p >= TH_LEFT) return 0;
+        const t = (TH_LEFT - p) / TH_LEFT; // 1 at p=0, 0 at p=TH_LEFT
+        return smoothstep(t);
+      }
+      function meaningOpacityLeft(p){ // for know-side meaning (left slot)
+        // active when p > TH_RIGHT, fade-in from TH_RIGHT to 1
+        if(p <= TH_RIGHT) return 0;
+        const t = (p - TH_RIGHT) / (1 - TH_RIGHT); // 0 at TH_RIGHT, 1 at 1
+        return smoothstep(t);
+      }
 
       function computeBounds(){
         const trackRect = el.getBoundingClientRect();
@@ -485,12 +526,38 @@
         return (x - minX) / (maxX - minX);
       }
 
-      function applyTint(x){
+      function applyTintAndPillAndMeaning(x){
         const p = progress(x);
+
+        // ✅ tint continuous
         const leftStr = Math.max(0, (0.5 - p) / 0.5);
         const rightStr = Math.max(0, (p - 0.5) / 0.5);
         tintL.style.opacity = String(Math.min(1, leftStr * 0.9));
         tintR.style.opacity = String(Math.min(1, rightStr * 0.9));
+
+        // ✅ (3) pill color continuous (danger <-> neutral <-> ok)
+        let bg, bd;
+        if(p <= 0.5){
+          const t = p / 0.5; // 0..1
+          bg = mixRGBA(COL_DANGER_BG, COL_NEUTRAL_BG, t);
+          bd = mixRGBA(COL_DANGER_BD, COL_NEUTRAL_BD, t);
+        }else{
+          const t = (p - 0.5) / 0.5; // 0..1
+          bg = mixRGBA(COL_NEUTRAL_BG, COL_OK_BG, t);
+          bd = mixRGBA(COL_NEUTRAL_BD, COL_OK_BD, t);
+        }
+        pill.style.background = rgbaStr(bg);
+        pill.style.borderColor = rgbaStr(bd);
+
+        // ✅ (3-1) meaning opacity continuous while dragging (and also while idle)
+        const opR = meaningOpacityRight(p);
+        const opL = meaningOpacityLeft(p);
+        meanR.style.opacity = String(opR);
+        meanL.style.opacity = String(opL);
+
+        // optional micro motion (kept subtle)
+        meanR.style.transform = `translateY(-50%) translateX(${Math.round(6*(1-opR))}px)`;
+        meanL.style.transform = `translateY(-50%) translateX(${Math.round(-6*(1-opL))}px)`;
       }
 
       function moveTo(x, snap){
@@ -498,7 +565,7 @@
         curX = clamped;
         if(snap) pill.classList.remove("dragging");
         pill.style.transform = `translateY(-50%) translateX(${clamped}px)`;
-        applyTint(clamped);
+        applyTintAndPillAndMeaning(clamped);
       }
 
       function statusToX(st){
@@ -507,45 +574,16 @@
         return (minX + maxX) / 2;
       }
 
-      function setPillClass(st){
-        pill.classList.remove("neutral","dont","know");
-        pill.classList.add(st === "dont" ? "dont" : st === "know" ? "know" : "neutral");
-      }
-
       function setTrackClass(st){
         el.classList.remove("is-unknown","is-dont","is-know");
         el.classList.add(st === "dont" ? "is-dont" : st === "know" ? "is-know" : "is-unknown");
       }
 
-      function setMeaning(st){
-        // rule: meaning only after snap to dont/know (labels hidden then)
-        meanL.textContent = "";
-        meanR.textContent = "";
-        meanL.classList.remove("small","smaller");
-        meanR.classList.remove("small","smaller");
-
-        if(st === "dont"){
-          meanR.textContent = wordObj.meaning || "";
-          applyMeaningSizing(meanR);
-        }else if(st === "know"){
-          meanL.textContent = wordObj.meaning || "";
-          applyMeaningSizing(meanL);
-        }
-      }
-
-      function applyMeaningSizing(slotEl){
-        const t = slotEl.textContent || "";
-        // simple step sizing (stable, avoids heavy measurement)
-        if(t.length >= 16) slotEl.classList.add("small");
-        if(t.length >= 22) slotEl.classList.add("smaller");
-      }
-
       function snapByX(x){
         const p = progress(x);
-        let st = "unknown";
-        if(p <= TH_LEFT) st = "dont";
-        else if(p >= TH_RIGHT) st = "know";
-        return st;
+        if(p <= TH_LEFT) return "dont";
+        if(p >= TH_RIGHT) return "know";
+        return "unknown";
       }
 
       function applyStatus(st){
@@ -553,18 +591,22 @@
         state.words[index].status = st;
         saveState(state);
 
-        setPillClass(st);
         setTrackClass(st);
-        setMeaning(st);
+        // ✅ snap to exact position; dynamics (tint/pill/meaning) are derived from x anyway
         moveTo(statusToX(st), true);
+      }
+
+      function applyMeaningSizing(slotEl){
+        const t = slotEl.textContent || "";
+        slotEl.classList.remove("small","smaller");
+        if(t.length >= 16) slotEl.classList.add("small");
+        if(t.length >= 22) slotEl.classList.add("smaller");
       }
 
       function init(){
         computeBounds();
         const st = wordObj.status || "unknown";
-        setPillClass(st);
         setTrackClass(st);
-        setMeaning(st);
         moveTo(statusToX(st), true);
       }
 
@@ -583,7 +625,7 @@
       pill.addEventListener("pointermove", (e)=>{
         if(!dragging || e.pointerId !== pid) return;
         const dx = e.clientX - startClientX;
-        moveTo(startX + dx, false); // ✅ tint continuous during drag
+        moveTo(startX + dx, false); // continuous updates
         e.preventDefault();
       });
 
@@ -598,17 +640,13 @@
       pill.addEventListener("pointerup", endDrag);
       pill.addEventListener("pointercancel", endDrag);
 
-      // click zones: change state even after snap (required)
+      // ✅ (2) click zones: left/right snap + center returns unknown
       zoneL.addEventListener("click", ()=> applyStatus("dont"));
       zoneR.addEventListener("click", ()=> applyStatus("know"));
-
-      // allow click center to return unknown (optional but matches "anywhere")
-      el.addEventListener("dblclick", ()=> applyStatus("unknown"));
+      zoneC.addEventListener("click", ()=> applyStatus("unknown"));
 
       // resize safe
-      window.addEventListener("resize", ()=>{
-        init();
-      }, { passive:true });
+      window.addEventListener("resize", ()=> init(), { passive:true });
 
       requestAnimationFrame(init);
       return el;
